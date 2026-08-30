@@ -1,0 +1,131 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:HangarScope.Views"
+        x:Class="HangarScope.Views.MainWindow"
+        Title="HANGARSCOPE — NEW EDEN ASSET LEDGER"
+        Width="1500" Height="940"
+        MinWidth="1100" MinHeight="640"
+        SystemDecorations="None"
+        Background="{StaticResource Bg}"
+        FontFamily="{StaticResource Ui}">
+  <DockPanel>
+
+    <!-- WINDOWS TITLE BAR -->
+    <Border DockPanel.Dock="Top" Height="32" Background="{StaticResource TitleBar}"
+            BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1"
+            PointerPressed="TitleBar_PointerPressed" DoubleTapped="TitleBar_DoubleTapped">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Left" Margin="12,0" VerticalAlignment="Center"
+                   FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}"
+                   Text="HANGARSCOPE — NEW EDEN ASSET LEDGER"/>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button Classes="flat titlebtn" Width="46" Height="32" Click="Minimize_Click">
+            <TextBlock Text="–" FontSize="14" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Button>
+          <Button Classes="flat titlebtn" Width="46" Height="32" Click="Maximize_Click">
+            <Border Width="10" Height="10" BorderBrush="{StaticResource Muted}" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Button>
+          <Button Classes="flat closebtn" Width="46" Height="32" Click="Close_Click">
+            <TextBlock Name="CloseGlyph" Text="×" FontSize="15" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Button>
+        </StackPanel>
+        <Border/>
+      </DockPanel>
+    </Border>
+
+    <!-- TOP BAR -->
+    <Border DockPanel.Dock="Top" Height="56" Background="{StaticResource Panel}"
+            BorderBrush="{StaticResource Rule}" BorderThickness="0,0,0,1">
+      <DockPanel Margin="20,0" VerticalAlignment="Stretch">
+        <!-- logo + brand -->
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Panel Width="26" Height="26">
+            <Border BorderBrush="{StaticResource Accent}" BorderThickness="1"/>
+            <Border Margin="5" Background="{StaticResource Accent}" Opacity="0.25"/>
+            <Border Width="8" Height="8" Background="{StaticResource Accent}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0"/>
+          </Panel>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="HANGARSCOPE" FontWeight="Bold" FontSize="19" LetterSpacing="3" Foreground="{StaticResource Brighter}"/>
+            <TextBlock Text="NEW EDEN ASSET LEDGER" FontSize="11" LetterSpacing="2.5" Foreground="{StaticResource Dim}" Margin="0,3,0,0"/>
+          </StackPanel>
+        </StackPanel>
+
+        <!-- nav tabs -->
+        <ItemsControl DockPanel.Dock="Left" ItemsSource="{Binding Tabs}" Margin="32,0,0,0" VerticalAlignment="Stretch">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="2"/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Button Classes="flat tab" Command="{Binding Go}" VerticalAlignment="Stretch">
+                <Border BorderThickness="0,0,0,2" Padding="16,0" VerticalAlignment="Stretch"
+                        BorderBrush="{Binding Active, Converter={x:Static v:Conv.TabBorder}}">
+                  <TextBlock Text="{Binding Label}" FontSize="13" LetterSpacing="2" VerticalAlignment="Center"
+                             Foreground="{Binding Active, Converter={x:Static v:Conv.TabText}}"/>
+                </Border>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- net worth (right) -->
+        <Border DockPanel.Dock="Right" BorderBrush="{StaticResource Rule}" BorderThickness="1,0,0,0" Padding="16,0,0,0" VerticalAlignment="Center">
+          <StackPanel>
+            <TextBlock Text="NET WORTH · ALL CHARACTERS" Classes="label" TextAlignment="Right"/>
+            <TextBlock FontFamily="{StaticResource Mono}" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{StaticResource Accent}" TextAlignment="Right">
+              <Run Text="{Binding NetWorthText}"/><Run Text=" ISK"/>
+            </TextBlock>
+          </StackPanel>
+        </Border>
+
+        <!-- price side toggle -->
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,16,0">
+          <TextBlock Text="JITA PRICE" FontSize="12" LetterSpacing="2" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+          <Border BorderBrush="{StaticResource Rule}" BorderThickness="1">
+            <StackPanel Orientation="Horizontal">
+              <Button Classes="flat" Command="{Binding SetSellCommand}"
+                      Background="{Binding SellActive, Converter={x:Static v:Conv.ToggleBg}}">
+                <TextBlock Text="SELL" Padding="14,5" FontSize="12" LetterSpacing="1.5"
+                           FontWeight="{Binding SellActive, Converter={x:Static v:Conv.ToggleWeight}}"
+                           Foreground="{Binding SellActive, Converter={x:Static v:Conv.ToggleFg}}"/>
+              </Button>
+              <Button Classes="flat" Command="{Binding SetBuyCommand}"
+                      Background="{Binding BuyActive, Converter={x:Static v:Conv.ToggleBg}}">
+                <TextBlock Text="BUY" Padding="14,5" FontSize="12" LetterSpacing="1.5"
+                           FontWeight="{Binding BuyActive, Converter={x:Static v:Conv.ToggleWeight}}"
+                           Foreground="{Binding BuyActive, Converter={x:Static v:Conv.ToggleFg}}"/>
+              </Button>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+        <Border/>
+      </DockPanel>
+    </Border>
+
+    <!-- SCREENS -->
+    <Panel>
+      <v:AssetsView IsVisible="{Binding IsAssets}"/>
+      <v:DashboardView IsVisible="{Binding IsDash}"/>
+      <v:WalletView IsVisible="{Binding IsWallet}"/>
+      <v:LocationsView IsVisible="{Binding IsLoc}"/>
+      <v:CharactersView IsVisible="{Binding IsAuth}"/>
+      <v:SettingsView IsVisible="{Binding IsSettings}"/>
+    </Panel>
+  </DockPanel>
+
+  <Window.Styles>
+    <Style Selector="Button.titlebtn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource FaintRule}"/>
+    </Style>
+    <Style Selector="Button.closebtn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Red}"/>
+    </Style>
+    <Style Selector="Button.closebtn:pointerover TextBlock">
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.tab:pointerover TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Brighter}"/>
+    </Style>
+  </Window.Styles>
+</Window>

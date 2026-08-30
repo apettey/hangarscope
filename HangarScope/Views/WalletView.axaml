@@ -1,0 +1,165 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:HangarScope.Views"
+             xmlns:c="using:HangarScope.Controls"
+             x:Class="HangarScope.Views.WalletView">
+  <ScrollViewer>
+    <StackPanel Margin="28,24" Spacing="14" MaxWidth="1280" HorizontalAlignment="Left">
+
+      <!-- cards row -->
+      <Grid ColumnDefinitions="*,14,*,14,*,14,*">
+        <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16">
+          <StackPanel>
+            <TextBlock Text="TOTAL LIQUID ISK" Classes="label"/>
+            <TextBlock Text="{Binding WalletTotalText}" FontFamily="{StaticResource Mono}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Accent}" Margin="0,8,0,0"/>
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+              <TextBlock Text="NET WORTH INCL. ASSETS · " FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}"/>
+              <TextBlock Text="{Binding GrandTotalText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Muted}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <ItemsControl Grid.Column="2" Grid.ColumnSpan="5" ItemsSource="{Binding WalletCards}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16" Margin="0,0,14,0">
+                <StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Border Width="8" Height="8" Background="{Binding Color}" BorderBrush="{Binding Color}" BorderThickness="1" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Name}" FontSize="14" LetterSpacing="1.5" Foreground="{StaticResource Bright}"/>
+                  </StackPanel>
+                  <TextBlock Text="{Binding BalanceText}" FontFamily="{StaticResource Mono}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource ValueText}" Margin="0,10,0,0"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Text="{Binding DeltaText}" FontFamily="{StaticResource Mono}" FontSize="12" LetterSpacing="1" Foreground="{Binding DeltaBrush}"/>
+                    <TextBlock Text=" · 30 D" FontFamily="{StaticResource Mono}" FontSize="12" LetterSpacing="1" Foreground="{Binding DeltaBrush}"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+
+      <!-- breakdown chips -->
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <TextBlock Text="BREAKDOWN" Classes="label" VerticalAlignment="Center"/>
+        <ItemsControl ItemsSource="{Binding WalletChips}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="10"/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Button Classes="flat chip" Command="{Binding Go}">
+                <Border BorderThickness="1" Padding="12,5"
+                        BorderBrush="{Binding Selected, Converter={x:Static v:Conv.ChipBorder}}"
+                        Background="{Binding Selected, Converter={x:Static v:Conv.ChipBg}}">
+                  <StackPanel Orientation="Horizontal" Spacing="7">
+                    <Border Width="8" Height="8" BorderBrush="{Binding Color}" BorderThickness="1" Background="{Binding DotFill}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Name}" FontSize="13.5" Foreground="{Binding Selected, Converter={x:Static v:Conv.ChipText}}"/>
+                  </StackPanel>
+                </Border>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <!-- flow by type + flow by station -->
+      <Grid ColumnDefinitions="1*,14,1.4*">
+        <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
+          <StackPanel>
+            <TextBlock Text="30-DAY FLOW BY TYPE" Classes="label" Margin="0,0,0,14"/>
+            <ItemsControl ItemsSource="{Binding FlowBars}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Spacing="10"/></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel>
+                    <DockPanel Margin="0,0,0,4">
+                      <TextBlock DockPanel.Dock="Right" Text="{Binding ValueText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{Binding ValueBrush}"/>
+                      <TextBlock Text="{Binding Name}" FontSize="13" LetterSpacing="1.5" Foreground="{StaticResource Muted}"/>
+                    </DockPanel>
+                    <c:FractionBar Fraction="{Binding Fraction}" Fill="{Binding Fill}" FillOpacity="0.8" Track="{StaticResource FaintRule}"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,1,0,0" Margin="0,14,0,0" Padding="0,10,0,0">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding Net30Text}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{Binding Net30Brush}"/>
+                <TextBlock Text="NET 30 D" FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}"/>
+              </DockPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="2" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
+          <StackPanel>
+            <TextBlock Text="30-DAY FLOW BY STATION" Classes="label" Margin="0,0,0,12"/>
+            <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="0,0,0,6">
+              <Grid ColumnDefinitions="2.2*,1*,1*,1*">
+                <TextBlock Grid.Column="0" Text="STATION" FontSize="11" LetterSpacing="1.5" Foreground="{StaticResource Dim}"/>
+                <TextBlock Grid.Column="1" Text="IN" FontSize="11" LetterSpacing="1.5" Foreground="{StaticResource Dim}" TextAlignment="Right"/>
+                <TextBlock Grid.Column="2" Text="OUT" FontSize="11" LetterSpacing="1.5" Foreground="{StaticResource Dim}" TextAlignment="Right"/>
+                <TextBlock Grid.Column="3" Text="NET" FontSize="11" LetterSpacing="1.5" Foreground="{StaticResource Dim}" TextAlignment="Right"/>
+              </Grid>
+            </Border>
+            <ItemsControl ItemsSource="{Binding StationFlows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Height="34" BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="2.2*,1*,1*,1*">
+                      <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="14" Foreground="{StaticResource Text}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="1" Text="{Binding InText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Green}" TextAlignment="Right" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="2" Text="{Binding OutText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Red}" TextAlignment="Right" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="3" Text="{Binding NetText}" FontFamily="{StaticResource Mono}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding NetBrush}" TextAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+              <TextBlock Text="IN SPACE / NO STATION · " FontSize="11" LetterSpacing="1" Foreground="{StaticResource Dim}"/>
+              <TextBlock Text="{Binding SpaceFlowText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Muted}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- recent journal -->
+      <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1">
+        <StackPanel>
+          <DockPanel Margin="16,16,16,10">
+            <TextBlock DockPanel.Dock="Right" Text="ESI · 30 DAYS BACK · CACHED 1 H" FontSize="11" LetterSpacing="1.5" Foreground="{StaticResource Dim}"/>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="RECENT JOURNAL · " Classes="label"/>
+              <TextBlock Text="{Binding JournalScopeText}" Classes="label"/>
+            </StackPanel>
+          </DockPanel>
+          <ItemsControl ItemsSource="{Binding JournalRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Height="36" BorderBrush="{StaticResource FaintRule}" BorderThickness="0,1,0,0">
+                  <Grid Margin="16,0" ColumnDefinitions="0.8*,1*,1.9*,1.5*,1*,1*">
+                    <TextBlock Grid.Column="0" Text="{Binding DateText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                    <DockPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                      <Border DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,6,0" Background="{Binding OwnerColor}" BorderBrush="{Binding OwnerColor}" BorderThickness="1" VerticalAlignment="Center"/>
+                      <TextBlock Text="{Binding OwnerName}" FontSize="13" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <TextBlock Grid.Column="2" Text="{Binding Desc}" FontSize="14" Foreground="{StaticResource Text}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="3" Text="{Binding Station}" FontSize="13" Foreground="{StaticResource Dim}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="4" Text="{Binding TypeText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="5" Text="{Binding AmountText}" FontFamily="{StaticResource Mono}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding AmountBrush}" TextAlignment="Right" VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,0 +1,193 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:HangarScope.Views"
+             x:Class="HangarScope.Views.AssetsView">
+  <Grid ColumnDefinitions="264,*">
+
+    <!-- FILTER RAIL -->
+    <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,1,0">
+      <ScrollViewer>
+        <StackPanel Margin="14,16" Spacing="18">
+          <StackPanel>
+            <TextBlock Text="SEARCH" Classes="label" Margin="0,0,0,6"/>
+            <TextBox Text="{Binding SearchText}" Watermark="Item, group, station…"/>
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock Text="CHARACTERS" Classes="label" Margin="0,0,0,6"/>
+            <ItemsControl ItemsSource="{Binding CharChips}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Spacing="4"/></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Classes="flat chip" Command="{Binding Go}">
+                    <Border BorderThickness="1" Padding="9,6"
+                            BorderBrush="{Binding Selected, Converter={x:Static v:Conv.ChipBorder}}"
+                            Background="{Binding Selected, Converter={x:Static v:Conv.ChipBg}}">
+                      <DockPanel>
+                        <Border DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
+                                BorderBrush="{Binding Color}" BorderThickness="1" Background="{Binding DotFill}"/>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding ValueText}" FontFamily="{StaticResource Mono}"
+                                   FontSize="11" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Name}" FontSize="14" VerticalAlignment="Center"
+                                   Foreground="{Binding Selected, Converter={x:Static v:Conv.ChipText}}"/>
+                      </DockPanel>
+                    </Border>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock Text="DISTANCE FROM" Classes="label" Margin="0,0,0,6"/>
+            <ComboBox ItemsSource="{Binding DistFromOptions}" SelectedIndex="{Binding DistFromIndex}"/>
+          </StackPanel>
+
+          <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,10,Auto">
+            <StackPanel Grid.Row="0" Grid.Column="0">
+              <TextBlock Text="REGION" Classes="label" Margin="0,0,0,6"/>
+              <ComboBox ItemsSource="{Binding RegionOptions}" SelectedIndex="{Binding RegionIndex}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="2">
+              <TextBlock Text="CATEGORY" Classes="label" Margin="0,0,0,6"/>
+              <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedIndex="{Binding CategoryIndex}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="0">
+              <TextBlock Text="OWNERSHIP" Classes="label" Margin="0,0,0,6"/>
+              <ComboBox ItemsSource="{Binding FlagOptions}" SelectedIndex="{Binding FlagIndex}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="2">
+              <TextBlock Text="MIN VALUE" Classes="label" Margin="0,0,0,6"/>
+              <ComboBox ItemsSource="{Binding MinValueOptions}" SelectedIndex="{Binding MinValueIndex}"/>
+            </StackPanel>
+          </Grid>
+
+          <Border BorderBrush="{StaticResource Rule}" BorderThickness="0,1,0,0" Padding="0,14,0,0">
+            <StackPanel>
+              <TextBlock Text="LOCATIONS" Classes="label" Margin="0,0,0,8"/>
+              <ItemsControl ItemsSource="{Binding Tree}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Margin="0,0,0,6">
+                      <DockPanel Margin="0,2">
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding ValueText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Dim}"/>
+                        <TextBlock Text="{Binding Name}" FontSize="13" LetterSpacing="1.5" Foreground="{StaticResource Muted}"/>
+                      </DockPanel>
+                      <ItemsControl ItemsSource="{Binding Stations}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Button Classes="flat station" Command="{Binding Go}">
+                              <Border BorderThickness="2,0,0,0" Padding="10,4,6,4"
+                                      BorderBrush="{Binding Selected, Converter={x:Static v:Conv.StationBorder}}"
+                                      Background="{Binding Selected, Converter={x:Static v:Conv.ChipBg}}">
+                                <DockPanel>
+                                  <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                                  <TextBlock Text="{Binding Name}" FontSize="13.5" Margin="0,0,6,0"
+                                             Foreground="{Binding Selected, Converter={x:Static v:Conv.StationText}}"/>
+                                </DockPanel>
+                              </Border>
+                            </Button>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Button Classes="action" Command="{Binding ClearFiltersCommand}" Padding="0,7" HorizontalAlignment="Stretch">
+            <TextBlock Text="CLEAR FILTERS" FontSize="12" LetterSpacing="2" Foreground="{StaticResource Dim}"/>
+          </Button>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- TABLE -->
+    <Grid Grid.Column="1" RowDefinitions="38,*,36">
+
+      <!-- header -->
+      <Border Grid.Row="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,0,1">
+        <Grid Margin="20,0" ColumnDefinitions="2.4*,0.7*,1*,1*,1.8*,0.7*,1*,1.1*">
+          <Button Grid.Column="0" Classes="flat" Command="{Binding SortByCommand}" CommandParameter="name" VerticalAlignment="Stretch">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Classes="label" Text="ITEM"/><TextBlock Classes="label" Text="{Binding IndName}"/></StackPanel>
+          </Button>
+          <Button Grid.Column="1" Classes="flat" Command="{Binding SortByCommand}" CommandParameter="qty" VerticalAlignment="Stretch">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"><TextBlock Classes="label" Text="QTY"/><TextBlock Classes="label" Text="{Binding IndQty}"/></StackPanel>
+          </Button>
+          <TextBlock Grid.Column="2" Classes="label" Text="GROUP" VerticalAlignment="Center"/>
+          <TextBlock Grid.Column="3" Classes="label" Text="OWNER" VerticalAlignment="Center"/>
+          <TextBlock Grid.Column="4" Classes="label" Text="LOCATION" VerticalAlignment="Center"/>
+          <Button Grid.Column="5" Classes="flat" Command="{Binding SortByCommand}" CommandParameter="jumps" VerticalAlignment="Stretch">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"><TextBlock Classes="label" Text="JUMPS"/><TextBlock Classes="label" Text="{Binding IndJumps}"/></StackPanel>
+          </Button>
+          <TextBlock Grid.Column="6" Classes="label" Text="UNIT" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
+          <Button Grid.Column="7" Classes="flat" Command="{Binding SortByCommand}" CommandParameter="value" VerticalAlignment="Stretch">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBlock Classes="label" Text="VALUE"/><TextBlock Classes="label" Text="{Binding IndValue}"/></StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+
+      <!-- rows -->
+      <ScrollViewer Grid.Row="1">
+        <ItemsControl ItemsSource="{Binding Rows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Classes="assetrow" Height="40" BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Background="Transparent">
+                <Grid Margin="20,0" ColumnDefinitions="2.4*,0.7*,1*,1*,1.8*,0.7*,1*,1.1*">
+                  <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Border Width="3" Height="16" Background="#26313d"/>
+                    <TextBlock Text="{Binding Name}" FontSize="15" Foreground="{StaticResource Bright}" VerticalAlignment="Center"/>
+                    <Border IsVisible="{Binding FlagVisible}" BorderThickness="1" Padding="5,1" VerticalAlignment="Center"
+                            BorderBrush="{Binding FlagFitted, Converter={x:Static v:Conv.FlagBorder}}">
+                      <TextBlock Text="{Binding FlagLabel}" FontSize="10" LetterSpacing="1.5"
+                                 Foreground="{Binding FlagFitted, Converter={x:Static v:Conv.FlagText}}"/>
+                    </Border>
+                  </StackPanel>
+                  <TextBlock Grid.Column="1" Text="{Binding QtyText}" FontFamily="{StaticResource Mono}" FontSize="12" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="2" Text="{Binding Group}" FontSize="15" Foreground="{StaticResource Muted}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                  <DockPanel Grid.Column="3" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <Border DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,6,0" Background="{Binding OwnerColor}" BorderBrush="{Binding OwnerColor}" BorderThickness="1" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding OwnerName}" FontSize="15" VerticalAlignment="Center"/>
+                  </DockPanel>
+                  <TextBlock Grid.Column="4" Text="{Binding Location}" FontSize="15" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="5" Text="{Binding JumpsText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{Binding JumpsBrush}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="6" Text="{Binding UnitText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Muted}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="7" Text="{Binding ValueText}" FontFamily="{StaticResource Mono}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource ValueText}" TextAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <!-- footer -->
+      <Border Grid.Row="2" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="0,1,0,0">
+        <DockPanel Margin="20,0">
+          <TextBlock DockPanel.Dock="Right" Text="{Binding PriceStatusText}" FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="{Binding RowCountText}" FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}"/>
+            <TextBlock Text=" STACKS · FILTERED VALUE " FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}"/>
+            <TextBlock Text="{Binding FilteredValueText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Accent}"/>
+            <TextBlock Text=" ISK" FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Accent}"/>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </Grid>
+
+  <UserControl.Styles>
+    <Style Selector="Border.assetrow:pointerover">
+      <Setter Property="Background" Value="{StaticResource HoverRow}"/>
+    </Style>
+    <Style Selector="Button.chip:pointerover Border">
+      <Setter Property="BorderBrush" Value="{StaticResource BorderSel}"/>
+    </Style>
+    <Style Selector="Button.station:pointerover Border">
+      <Setter Property="Background" Value="{StaticResource HoverChip}"/>
+    </Style>
+  </UserControl.Styles>
+</UserControl>

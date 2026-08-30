@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HangarScope.Views.LocationsView">
+  <ScrollViewer>
+    <ItemsControl ItemsSource="{Binding LocCards}" Margin="28,24" MaxWidth="1280" HorizontalAlignment="Left">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Margin="0,0,14,14" VerticalAlignment="Top">
+            <StackPanel>
+              <!-- header -->
+              <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="16">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <Border Width="44" Height="44" BorderBrush="{Binding Color}" BorderThickness="1">
+                    <TextBlock Text="{Binding Initials}" Foreground="{Binding Color}" FontSize="16" FontWeight="SemiBold" LetterSpacing="1"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" LetterSpacing="1" Foreground="{StaticResource Bright}"/>
+                    <TextBlock Text="{Binding Status}" FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}" Margin="0,2,0,0"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+              <!-- facts -->
+              <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="16,14">
+                <Grid ColumnDefinitions="*,10,*" RowDefinitions="Auto,10,Auto">
+                  <StackPanel Grid.Row="0" Grid.Column="0">
+                    <TextBlock Text="SYSTEM" Classes="label"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,2,0,0">
+                      <TextBlock Text="{Binding SystemName}" FontSize="15" Foreground="{StaticResource Bright}"/>
+                      <TextBlock Text="{Binding SecText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{Binding SecBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </StackPanel>
+                  <StackPanel Grid.Row="0" Grid.Column="2">
+                    <TextBlock Text="REGION" Classes="label"/>
+                    <TextBlock Text="{Binding RegionName}" FontSize="15" Foreground="{StaticResource Bright}" Margin="0,2,0,0"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="2" Grid.Column="0">
+                    <TextBlock Text="SHIP" Classes="label"/>
+                    <TextBlock Text="{Binding ShipName}" FontSize="15" Foreground="{StaticResource Bright}" Margin="0,2,0,0"/>
+                  </StackPanel>
+                  <StackPanel Grid.Row="2" Grid.Column="2">
+                    <TextBlock Text="CHARACTER VALUE" Classes="label"/>
+                    <TextBlock Text="{Binding ValueText}" FontFamily="{StaticResource Mono}" FontSize="13" Foreground="{StaticResource Accent}" Margin="0,3,0,0"/>
+                  </StackPanel>
+                </Grid>
+              </Border>
+              <!-- nearest hubs -->
+              <StackPanel Margin="16,14">
+                <TextBlock Text="NEAREST ASSET HUBS" Classes="label" Margin="0,0,0,8"/>
+                <ItemsControl ItemsSource="{Binding Nearest}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Spacing="6"/></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <DockPanel>
+                        <TextBlock DockPanel.Dock="Left" Text="{Binding JumpsText}" Width="34" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{Binding JumpsBrush}" VerticalAlignment="Center"/>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding ValueText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Dim}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <TextBlock Text="{Binding Name}" FontSize="14" Foreground="{StaticResource Text}" VerticalAlignment="Center"/>
+                      </DockPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </ScrollViewer>
+</UserControl>

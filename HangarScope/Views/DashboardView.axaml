@@ -1,0 +1,91 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:HangarScope.Controls"
+             x:Class="HangarScope.Views.DashboardView">
+  <ScrollViewer>
+    <StackPanel Margin="28,24" Spacing="24" MaxWidth="1280" HorizontalAlignment="Left">
+
+      <!-- cards row -->
+      <Grid ColumnDefinitions="*,14,*,14,*,14,*">
+        <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16">
+          <StackPanel>
+            <TextBlock Text="TOTAL NET WORTH" Classes="label"/>
+            <TextBlock Text="{Binding NetWorthText}" FontFamily="{StaticResource Mono}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Accent}" Margin="0,8,0,0"/>
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+              <TextBlock Text="ISK · JITA " FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}"/>
+              <TextBlock Text="{Binding PriceLabelText}" FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <ItemsControl Grid.Column="2" Grid.ColumnSpan="5" ItemsSource="{Binding CharCards}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16" Margin="0,0,14,0">
+                <StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Border Width="8" Height="8" Background="{Binding Color}" BorderBrush="{Binding Color}" BorderThickness="1" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Name}" FontSize="14" LetterSpacing="1.5" Foreground="{StaticResource Bright}"/>
+                  </StackPanel>
+                  <TextBlock Text="{Binding ValueText}" FontFamily="{StaticResource Mono}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource ValueText}" Margin="0,10,0,0"/>
+                  <TextBlock Text="{Binding SubText}" FontSize="12" LetterSpacing="1" Foreground="{StaticResource Dim}" Margin="0,4,0,0"/>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+
+      <!-- value by region + top holdings -->
+      <Grid ColumnDefinitions="1.1*,14,1.6*">
+        <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
+          <StackPanel>
+            <TextBlock Text="VALUE BY REGION" Classes="label" Margin="0,0,0,14"/>
+            <ItemsControl ItemsSource="{Binding RegionBars}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Spacing="10"/></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel>
+                    <DockPanel Margin="0,0,0,4">
+                      <TextBlock DockPanel.Dock="Right" Text="{Binding ValueText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Text}"/>
+                      <TextBlock Text="{Binding Name}" FontSize="13" LetterSpacing="1.5" Foreground="{StaticResource Muted}"/>
+                    </DockPanel>
+                    <c:FractionBar Fraction="{Binding Fraction}" Fill="{Binding Fill}" FillOpacity="0.85" Track="{StaticResource FaintRule}"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="2" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" VerticalAlignment="Top">
+          <StackPanel>
+            <TextBlock Text="TOP HOLDINGS" Classes="label" Margin="16,16,16,10"/>
+            <ItemsControl ItemsSource="{Binding TopRows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Height="36" BorderBrush="{StaticResource FaintRule}" BorderThickness="0,1,0,0">
+                    <Grid Margin="16,0" ColumnDefinitions="0.5*,2*,1*,1.6*,1*">
+                      <TextBlock Grid.Column="0" Text="{Binding Rank}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="14" Foreground="{StaticResource Bright}" VerticalAlignment="Center"/>
+                      <DockPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <Border DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,6,0" Background="{Binding OwnerColor}" BorderBrush="{Binding OwnerColor}" BorderThickness="1" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding OwnerName}" FontSize="14" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                      </DockPanel>
+                      <TextBlock Grid.Column="3" Text="{Binding Location}" FontSize="14" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="4" Text="{Binding ValueText}" FontFamily="{StaticResource Mono}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource ValueText}" TextAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

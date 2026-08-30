@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:#0b0d10;}
+  a{color:#4fc3f7;text-decoration:none;} a:hover{color:#8fd9fa;}
+  ::selection{background:#4fc3f7;color:#0b0d10;}
+  *{box-sizing:border-box;}
+  input,select,button{font-family:'Barlow Condensed',sans-serif;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-track{background:#0b0d10;}
+  ::-webkit-scrollbar-thumb{background:#1e2630;border:2px solid #0b0d10;}
+  ::-webkit-scrollbar-thumb:hover{background:#3a4a5c;}
+  *{scrollbar-width:thin;scrollbar-color:#1e2630 #0b0d10;}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#0b0d10;color:#cfd8e0;font-family:'Barlow Condensed',sans-serif;font-size:16px;">
+
+  <!-- WINDOWS TITLE BAR -->
+  <div style="display:flex;align-items:center;height:32px;background:#080a0d;border-bottom:1px solid #141a21;user-select:none;">
+    <div style="padding:0 12px;font-size:12px;letter-spacing:1.5px;color:#6b7887;">HANGARSCOPE — NEW EDEN ASSET LEDGER</div>
+    <div style="flex:1;"></div>
+    <div style="width:46px;height:32px;display:flex;align-items:center;justify-content:center;color:#8fa0b0;font-size:14px;cursor:default;" style-hover="background:#141a21;">–</div>
+    <div style="width:46px;height:32px;display:flex;align-items:center;justify-content:center;cursor:default;" style-hover="background:#141a21;"><div style="width:10px;height:10px;border:1px solid #8fa0b0;"></div></div>
+    <div style="width:46px;height:32px;display:flex;align-items:center;justify-content:center;color:#8fa0b0;font-size:15px;cursor:default;" style-hover="background:#c0533f;color:#fff;">×</div>
+  </div>
+
+  <!-- TOP BAR -->
+  <div style="display:flex;align-items:center;gap:16px;height:56px;padding:0 20px;border-bottom:1px solid #1e2630;background:#0d1015;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:26px;height:26px;border:1px solid #4fc3f7;position:relative;">
+        <div style="position:absolute;inset:5px;background:#4fc3f7;opacity:0.25;"></div>
+        <div style="position:absolute;left:5px;top:5px;width:8px;height:8px;background:#4fc3f7;"></div>
+      </div>
+      <div style="line-height:1;white-space:nowrap;">
+        <div style="font-weight:700;font-size:19px;letter-spacing:3px;color:#eef4f8;">HANGARSCOPE</div>
+        <div style="font-size:11px;letter-spacing:2.5px;color:#6b7887;margin-top:3px;">NEW EDEN ASSET LEDGER</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:2px;margin-left:32px;">
+      <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="5">
+        <div onClick="{{ tab.go }}" style="{{ tab.style }}" style-hover="color:#eef4f8;">{{ tab.label }}</div>
+      </sc-for>
+    </div>
+    <div style="flex:1;"></div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="font-size:12px;letter-spacing:2px;color:#6b7887;">JITA PRICE</div>
+      <div style="display:flex;border:1px solid #1e2630;">
+        <div onClick="{{ setSell }}" style="{{ sellStyle }}">SELL</div>
+        <div onClick="{{ setBuy }}" style="{{ buyStyle }}">BUY</div>
+      </div>
+    </div>
+    <div style="text-align:right;border-left:1px solid #1e2630;padding-left:16px;">
+      <div style="font-size:11px;letter-spacing:2px;color:#6b7887;">NET WORTH · ALL CHARACTERS</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:#4fc3f7;">{{ netWorth }} ISK</div>
+    </div>
+  </div>
+
+  <!-- ASSETS -->
+  <sc-if value="{{ isAssets }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Asset browser" style="display:grid;grid-template-columns:264px 1fr;min-height:calc(100vh - 57px);">
+    <!-- FILTER RAIL -->
+    <div style="border-right:1px solid #1e2630;background:#0d1015;padding:16px 14px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;">
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">SEARCH</div>
+        <input value="{{ search }}" onChange="{{ setSearch }}" placeholder="Item, group, station…" style="width:100%;background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:7px 9px;font-size:15px;outline:none;">
+      </div>
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">CHARACTERS</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <sc-for list="{{ charChips }}" as="chip" hint-placeholder-count="4">
+            <div onClick="{{ chip.go }}" style="{{ chip.style }}" style-hover="border-color:#3a4a5c;">
+              <div style="{{ chip.dotStyle }}"></div>
+              <div style="flex:1;">{{ chip.name }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6b7887;">{{ chip.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">DISTANCE FROM</div>
+        <select value="{{ distFrom }}" onChange="{{ setDistFrom }}" style="width:100%;background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:7px 6px;font-size:15px;outline:none;">
+          <option value="min">Closest character</option>
+          <option value="K">Keldan Vex</option>
+          <option value="M">Mira Osteon</option>
+          <option value="R">Rho Kestrel</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">REGION</div>
+          <select value="{{ region }}" onChange="{{ setRegion }}" style="width:100%;background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:7px 6px;font-size:15px;outline:none;">
+            <option>All</option><option>The Forge</option><option>Domain</option><option>Sinq Laison</option><option>Delve</option><option>Heimatar</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">CATEGORY</div>
+          <select value="{{ category }}" onChange="{{ setCategory }}" style="width:100%;background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:7px 6px;font-size:15px;outline:none;">
+            <option>All</option><option>Ships</option><option>Modules</option><option>Minerals</option><option>Ammunition</option><option>Drones</option><option>Blueprints</option><option>Commodities</option><option>Implants</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">OWNERSHIP</div>
+          <select value="{{ flag }}" onChange="{{ setFlag }}" style="width:100%;background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:7px 6px;font-size:15px;outline:none;">
+            <option value="All">All</option><option value="Hangar">Hangar</option><option value="Fitted">Fitted</option><option value="Container">In container</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">MIN VALUE</div>
+          <select value="{{ minValue }}" onChange="{{ setMinValue }}" style="width:100%;background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:7px 6px;font-size:15px;outline:none;">
+            <option value="0">Any</option><option value="1000000">&gt; 1 M</option><option value="10000000">&gt; 10 M</option><option value="100000000">&gt; 100 M</option><option value="1000000000">&gt; 1 B</option>
+          </select>
+        </div>
+      </div>
+      <div style="border-top:1px solid #1e2630;padding-top:14px;">
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:8px;">LOCATIONS</div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <sc-for list="{{ tree }}" as="reg" hint-placeholder-count="3">
+            <div style="margin-bottom:6px;">
+              <div style="display:flex;justify-content:space-between;font-size:13px;letter-spacing:1.5px;color:#8fa0b0;padding:2px 0;">
+                <div>{{ reg.name }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6b7887;">{{ reg.value }}</div>
+              </div>
+              <sc-for list="{{ reg.stations }}" as="st" hint-placeholder-count="2">
+                <div onClick="{{ st.go }}" style="{{ st.style }}" style-hover="background:#131a22;">
+                  <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ st.short }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6b7887;">{{ st.count }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div onClick="{{ clearFilters }}" style="border:1px solid #1e2630;text-align:center;padding:7px;font-size:12px;letter-spacing:2px;color:#6b7887;cursor:pointer;" style-hover="color:#cfd8e0;border-color:#3a4a5c;">CLEAR FILTERS</div>
+    </div>
+
+    <!-- TABLE -->
+    <div style="display:flex;flex-direction:column;min-width:0;">
+      <div style="display:grid;grid-template-columns:2.4fr 0.7fr 1fr 1fr 1.8fr 0.7fr 1fr 1.1fr;padding:0 20px;height:38px;align-items:center;border-bottom:1px solid #1e2630;background:#0d1015;font-size:11px;letter-spacing:2px;color:#6b7887;">
+        <div onClick="{{ sortByName }}" style="cursor:pointer;">ITEM {{ indName }}</div>
+        <div onClick="{{ sortByQty }}" style="cursor:pointer;text-align:right;padding-right:14px;">QTY {{ indQty }}</div>
+        <div>GROUP</div>
+        <div>OWNER</div>
+        <div>LOCATION</div>
+        <div onClick="{{ sortByJumps }}" style="cursor:pointer;text-align:right;padding-right:14px;">JUMPS {{ indJumps }}</div>
+        <div style="text-align:right;padding-right:14px;">UNIT</div>
+        <div onClick="{{ sortByValue }}" style="cursor:pointer;text-align:right;">VALUE {{ indValue }}</div>
+      </div>
+      <div style="flex:1;overflow-y:auto;">
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="12">
+          <div style="display:grid;grid-template-columns:2.4fr 0.7fr 1fr 1fr 1.8fr 0.7fr 1fr 1.1fr;padding:0 20px;height:40px;align-items:center;border-bottom:1px solid #141a21;font-size:15px;" style-hover="background:#10151c;">
+            <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+              <div style="width:3px;height:16px;background:#26313d;flex:none;"></div>
+              <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e4ebf1;">{{ r.name }}</div>
+              <div style="{{ r.flagStyle }}">{{ r.flagLabel }}</div>
+            </div>
+            <div style="text-align:right;padding-right:14px;font-family:'IBM Plex Mono',monospace;font-size:12px;">{{ r.qty }}</div>
+            <div style="color:#8fa0b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;padding-right:10px;">{{ r.group }}</div>
+            <div style="display:flex;align-items:center;gap:6px;"><div style="{{ r.dotStyle }}"></div><div>{{ r.owner }}</div></div>
+            <div style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8fa0b0;">{{ r.location }}</div>
+            <div style="text-align:right;padding-right:14px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:{{ r.jumpColor }};">{{ r.jumps }}</div>
+            <div style="text-align:right;padding-right:14px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8fa0b0;">{{ r.unit }}</div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#d8e4ee;">{{ r.value }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;height:36px;padding:0 20px;border-top:1px solid #1e2630;background:#0d1015;font-size:12px;letter-spacing:1.5px;color:#6b7887;">
+        <div>{{ rowCount }} STACKS · FILTERED VALUE <span style="font-family:'IBM Plex Mono',monospace;color:#4fc3f7;">{{ filteredValue }} ISK</span></div>
+        <div>PRICES · ESI MARKET · JITA 4-4 · SYNCED 4 MIN AGO</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- DASHBOARD -->
+  <sc-if value="{{ isDash }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Net worth dashboard" style="padding:24px 28px;display:flex;flex-direction:column;gap:24px;max-width:1280px;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+      <div style="border:1px solid #1e2630;background:#0d1015;padding:16px;">
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;">TOTAL NET WORTH</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:#4fc3f7;margin-top:8px;">{{ netWorth }}</div>
+        <div style="font-size:12px;letter-spacing:1.5px;color:#6b7887;margin-top:4px;">ISK · JITA {{ priceLabel }}</div>
+      </div>
+      <sc-for list="{{ charCards }}" as="c" hint-placeholder-count="3">
+        <div style="border:1px solid #1e2630;background:#0d1015;padding:16px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="{{ c.dotStyle }}"></div>
+            <div style="font-size:14px;letter-spacing:1.5px;color:#e4ebf1;">{{ c.name }}</div>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:#d8e4ee;margin-top:10px;">{{ c.value }}</div>
+          <div style="font-size:12px;letter-spacing:1px;color:#6b7887;margin-top:4px;">{{ c.stacks }} STACKS · TOP: {{ c.top }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr 1.6fr;gap:14px;align-items:start;">
+      <div style="border:1px solid #1e2630;background:#0d1015;padding:16px;">
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:14px;">VALUE BY REGION</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <sc-for list="{{ regionBars }}" as="b" hint-placeholder-count="5">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                <div style="letter-spacing:1.5px;color:#8fa0b0;">{{ b.name }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#cfd8e0;">{{ b.value }}</div>
+              </div>
+              <div style="height:6px;background:#141a21;"><div style="{{ b.barStyle }}"></div></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="border:1px solid #1e2630;background:#0d1015;">
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;padding:16px 16px 10px;">TOP HOLDINGS</div>
+        <sc-for list="{{ topRows }}" as="t" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:0.5fr 2fr 1fr 1.6fr 1fr;padding:0 16px;height:36px;align-items:center;border-top:1px solid #141a21;font-size:14px;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6b7887;">{{ t.rank }}</div>
+            <div style="color:#e4ebf1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.name }}</div>
+            <div style="display:flex;align-items:center;gap:6px;"><div style="{{ t.dotStyle }}"></div><div style="color:#8fa0b0;">{{ t.owner }}</div></div>
+            <div style="color:#8fa0b0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.location }}</div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#d8e4ee;">{{ t.value }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- WALLET -->
+  <sc-if value="{{ isWallet }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Wallet overview" style="padding:24px 28px;display:flex;flex-direction:column;gap:14px;max-width:1280px;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+      <div style="border:1px solid #1e2630;background:#0d1015;padding:16px;">
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;">TOTAL LIQUID ISK</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:#4fc3f7;margin-top:8px;">{{ walletTotal }}</div>
+        <div style="font-size:12px;letter-spacing:1.5px;color:#6b7887;margin-top:4px;">NET WORTH INCL. ASSETS · <span style="font-family:'IBM Plex Mono',monospace;color:#8fa0b0;">{{ grandTotal }}</span></div>
+      </div>
+      <sc-for list="{{ walletCards }}" as="w" hint-placeholder-count="3">
+        <div style="border:1px solid #1e2630;background:#0d1015;padding:16px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="{{ w.dotStyle }}"></div>
+            <div style="font-size:14px;letter-spacing:1.5px;color:#e4ebf1;">{{ w.name }}</div>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:#d8e4ee;margin-top:10px;">{{ w.balance }}</div>
+          <div style="font-size:12px;letter-spacing:1px;margin-top:4px;color:{{ w.deltaColor }};font-family:'IBM Plex Mono',monospace;">{{ w.delta }} · 30 D</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:11px;letter-spacing:2px;color:#6b7887;">BREAKDOWN</div>
+      <sc-for list="{{ walletChips }}" as="wc" hint-placeholder-count="4">
+        <div onClick="{{ wc.go }}" style="{{ wc.style }}" style-hover="border-color:#3a4a5c;">
+          <div style="{{ wc.dotStyle }}"></div>
+          <div>{{ wc.name }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:14px;align-items:start;">
+      <div style="border:1px solid #1e2630;background:#0d1015;padding:16px;">
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:14px;">30-DAY FLOW BY TYPE</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <sc-for list="{{ flowBars }}" as="f" hint-placeholder-count="6">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                <div style="letter-spacing:1.5px;color:#8fa0b0;">{{ f.name }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ f.color }};">{{ f.value }}</div>
+              </div>
+              <div style="height:6px;background:#141a21;"><div style="{{ f.barStyle }}"></div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="border-top:1px solid #141a21;margin-top:14px;padding-top:10px;display:flex;justify-content:space-between;font-size:12px;letter-spacing:1.5px;">
+          <div style="color:#6b7887;">NET 30 D</div>
+          <div style="font-family:'IBM Plex Mono',monospace;color:#8bd450;">{{ net30 }}</div>
+        </div>
+      </div>
+      <div style="border:1px solid #1e2630;background:#0d1015;padding:16px;">
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:12px;">30-DAY FLOW BY STATION</div>
+        <div style="display:grid;grid-template-columns:2.2fr 1fr 1fr 1fr;font-size:11px;letter-spacing:1.5px;color:#6b7887;padding-bottom:6px;border-bottom:1px solid #141a21;">
+          <div>STATION</div><div style="text-align:right;">IN</div><div style="text-align:right;">OUT</div><div style="text-align:right;">NET</div>
+        </div>
+        <sc-for list="{{ stationFlows }}" as="sf" hint-placeholder-count="5">
+          <div style="display:grid;grid-template-columns:2.2fr 1fr 1fr 1fr;height:34px;align-items:center;border-bottom:1px solid #141a21;font-size:14px;">
+            <div style="color:#cfd8e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">{{ sf.name }}</div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8bd450;">{{ sf.inV }}</div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c0533f;">{{ sf.outV }}</div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:{{ sf.netColor }};">{{ sf.netV }}</div>
+          </div>
+        </sc-for>
+        <div style="font-size:11px;letter-spacing:1px;color:#6b7887;margin-top:10px;">IN SPACE / NO STATION · <span style="font-family:'IBM Plex Mono',monospace;color:#8fa0b0;">{{ spaceFlow }}</span></div>
+      </div>
+    </div>
+    <div style="border:1px solid #1e2630;background:#0d1015;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 16px 10px;">
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;">RECENT JOURNAL · {{ journalScope }}</div>
+        <div style="font-size:11px;letter-spacing:1.5px;color:#6b7887;">ESI · 30 DAYS BACK · CACHED 1 H</div>
+      </div>
+      <sc-for list="{{ journalRows }}" as="j" hint-placeholder-count="9">
+        <div style="display:grid;grid-template-columns:0.8fr 1fr 1.9fr 1.5fr 1fr 1fr;padding:0 16px;height:36px;align-items:center;border-top:1px solid #141a21;font-size:14px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6b7887;">{{ j.date }}</div>
+          <div style="display:flex;align-items:center;gap:6px;"><div style="{{ j.dotStyle }}"></div><div style="color:#8fa0b0;font-size:13px;">{{ j.owner }}</div></div>
+          <div style="color:#cfd8e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">{{ j.desc }}</div>
+          <div style="color:#6b7887;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">{{ j.station }}</div>
+          <div style="font-size:11px;letter-spacing:1px;color:#6b7887;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ j.type }}</div>
+          <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:{{ j.amtColor }};">{{ j.amount }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- LOCATIONS -->
+  <sc-if value="{{ isLoc }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Character locations" style="padding:24px 28px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:1280px;align-items:start;">
+    <sc-for list="{{ locCards }}" as="c" hint-placeholder-count="3">
+      <div style="border:1px solid #1e2630;background:#0d1015;">
+        <div style="display:flex;gap:12px;padding:16px;border-bottom:1px solid #141a21;">
+          <div style="{{ c.avatarStyle }}">{{ c.initials }}</div>
+          <div>
+            <div style="font-size:17px;font-weight:600;letter-spacing:1px;color:#e4ebf1;">{{ c.name }}</div>
+            <div style="font-size:12px;letter-spacing:1.5px;color:#6b7887;margin-top:2px;">{{ c.status }}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px;border-bottom:1px solid #141a21;">
+          <div><div style="font-size:11px;letter-spacing:2px;color:#6b7887;">SYSTEM</div><div style="font-size:15px;color:#e4ebf1;margin-top:2px;">{{ c.system }} <span style="{{ c.secStyle }}">{{ c.sec }}</span></div></div>
+          <div><div style="font-size:11px;letter-spacing:2px;color:#6b7887;">REGION</div><div style="font-size:15px;color:#e4ebf1;margin-top:2px;">{{ c.region }}</div></div>
+          <div><div style="font-size:11px;letter-spacing:2px;color:#6b7887;">SHIP</div><div style="font-size:15px;color:#e4ebf1;margin-top:2px;">{{ c.ship }}</div></div>
+          <div><div style="font-size:11px;letter-spacing:2px;color:#6b7887;">CHARACTER VALUE</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#4fc3f7;margin-top:3px;">{{ c.value }}</div></div>
+        </div>
+        <div style="padding:14px 16px;">
+          <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:8px;">NEAREST ASSET HUBS</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <sc-for list="{{ c.nearest }}" as="n" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px;font-size:14px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ n.jumpColor }};width:34px;flex:none;">{{ n.jumps }}</div>
+                <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cfd8e0;">{{ n.short }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6b7887;">{{ n.value }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <!-- CHARACTERS / AUTH -->
+  <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Character authentication" style="padding:24px 28px;display:flex;flex-direction:column;gap:20px;max-width:980px;">
+    <div style="border:1px solid #1e2630;background:#0d1015;padding:20px;display:flex;align-items:center;gap:20px;">
+      <div style="flex:1;">
+        <div style="font-size:15px;letter-spacing:2px;color:#e4ebf1;">LINK A CHARACTER</div>
+        <div style="font-size:14px;color:#8fa0b0;margin-top:4px;max-width:520px;">Authorizes read-only ESI scopes via EVE single sign-on. Tokens are stored locally and refreshed automatically. No credentials pass through this app.</div>
+      </div>
+      <div style="border:1px solid #4fc3f7;color:#4fc3f7;padding:10px 22px;font-size:14px;letter-spacing:2px;cursor:pointer;flex:none;" style-hover="background:#4fc3f7;color:#0b0d10;">AUTHENTICATE VIA EVE SSO →</div>
+    </div>
+    <div style="border:1px solid #1e2630;background:#0d1015;">
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr 1fr 1fr 1fr;padding:0 16px;height:36px;align-items:center;font-size:11px;letter-spacing:2px;color:#6b7887;border-bottom:1px solid #1e2630;">
+        <div>CHARACTER</div><div>SCOPES</div><div>TOKEN EXPIRES</div><div>LAST SYNC</div><div style="text-align:right;">ACTIONS</div>
+      </div>
+      <sc-for list="{{ authRows }}" as="a" hint-placeholder-count="3">
+        <div style="display:grid;grid-template-columns:1.6fr 1.4fr 1fr 1fr 1fr;padding:0 16px;height:48px;align-items:center;border-bottom:1px solid #141a21;font-size:15px;">
+          <div style="display:flex;align-items:center;gap:8px;"><div style="{{ a.dotStyle }}"></div><div style="color:#e4ebf1;">{{ a.name }}</div></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7c9a5e;">{{ a.scopes }}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8fa0b0;">{{ a.expires }}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8fa0b0;">{{ a.sync }}</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <div style="border:1px solid #1e2630;padding:4px 12px;font-size:12px;letter-spacing:1.5px;color:#8fa0b0;cursor:pointer;" style-hover="border-color:#4fc3f7;color:#4fc3f7;">SYNC</div>
+            <div style="border:1px solid #1e2630;padding:4px 12px;font-size:12px;letter-spacing:1.5px;color:#8fa0b0;cursor:pointer;" style-hover="border-color:#c0533f;color:#c0533f;">UNLINK</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size:12px;letter-spacing:1px;color:#6b7887;">REQUIRED SCOPES · esi-assets.read_assets.v1 · esi-location.read_location.v1 · esi-location.read_ship_type.v1 · esi-universe.read_structures.v1</div>
+  </div>
+  </sc-if>
+
+  <!-- SETTINGS -->
+  <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Settings" style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:980px;align-items:start;">
+    <div style="border:1px solid #1e2630;background:#0d1015;padding:18px;display:flex;flex-direction:column;gap:14px;grid-column:1 / -1;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:11px;letter-spacing:2px;color:#6b7887;">ESI APPLICATION · SELF-HOSTED</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;letter-spacing:1.5px;color:#8bd450;"><div style="width:7px;height:7px;background:#8bd450;"></div>CREDENTIALS VERIFIED</div>
+      </div>
+      <div style="font-size:14px;color:#8fa0b0;max-width:720px;">This instance uses your own EVE developer application. Register one at developers.eveonline.com, set the callback URL below, and paste the client ID and secret key here. They are stored encrypted on this machine and never leave it.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">CLIENT ID</div>
+          <input value="a1f6…redacted…9c2e" readOnly style="width:100%;background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:8px 10px;font-size:13px;font-family:'IBM Plex Mono',monospace;outline:none;">
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">SECRET KEY</div>
+          <div style="display:flex;gap:8px;">
+            <input type="password" value="••••••••••••••••••••••••" readOnly style="flex:1;background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:8px 10px;font-size:13px;font-family:'IBM Plex Mono',monospace;outline:none;">
+            <div style="border:1px solid #1e2630;padding:8px 14px;font-size:12px;letter-spacing:1.5px;color:#8fa0b0;cursor:pointer;flex:none;" style-hover="border-color:#3a4a5c;color:#cfd8e0;">SHOW</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:end;gap:14px;">
+        <div style="flex:1;">
+          <div style="font-size:11px;letter-spacing:2px;color:#6b7887;margin-bottom:6px;">CALLBACK URL</div>
+          <input value="http://localhost:8635/sso/callback" readOnly style="width:100%;background:#0b0d10;border:1px solid #1e2630;color:#6b7887;padding:8px 10px;font-size:13px;font-family:'IBM Plex Mono',monospace;outline:none;">
+        </div>
+        <div style="border:1px solid #1e2630;padding:8px 16px;font-size:12px;letter-spacing:1.5px;color:#8fa0b0;cursor:pointer;flex:none;" style-hover="border-color:#3a4a5c;color:#cfd8e0;">TEST CONNECTION</div>
+        <div style="border:1px solid #4fc3f7;color:#4fc3f7;padding:8px 18px;font-size:12px;letter-spacing:1.5px;cursor:pointer;flex:none;" style-hover="background:#4fc3f7;color:#0b0d10;">SAVE CREDENTIALS</div>
+      </div>
+    </div>
+    <div style="border:1px solid #1e2630;background:#0d1015;padding:18px;display:flex;flex-direction:column;gap:14px;">
+      <div style="font-size:11px;letter-spacing:2px;color:#6b7887;">MARKET DATA</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;">Price hub</div><select style="background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:6px;font-size:14px;outline:none;"><option>Jita 4-4</option><option>Amarr</option><option>Dodixie</option><option>Rens</option></select></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;">Default price side</div><select style="background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:6px;font-size:14px;outline:none;"><option>Sell orders</option><option>Buy orders</option><option>Split average</option></select></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;">Price refresh</div><select style="background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:6px;font-size:14px;outline:none;"><option>Every 30 min</option><option>Every hour</option><option>Manual</option></select></div>
+    </div>
+    <div style="border:1px solid #1e2630;background:#0d1015;padding:18px;display:flex;flex-direction:column;gap:14px;">
+      <div style="font-size:11px;letter-spacing:2px;color:#6b7887;">SYNC</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;">Asset sync interval</div><select style="background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:6px;font-size:14px;outline:none;"><option>Every hour (ESI cache)</option><option>Every 6 hours</option><option>Manual</option></select></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;">Track character location</div><select style="background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:6px;font-size:14px;outline:none;"><option>Live (30 s)</option><option>Every 5 min</option><option>Off</option></select></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;">Resolve citadel names</div><select style="background:#0b0d10;border:1px solid #1e2630;color:#cfd8e0;padding:6px;font-size:14px;outline:none;"><option>When docked access</option><option>Always try</option><option>Off</option></select></div>
+      <div style="border-top:1px solid #141a21;padding-top:12px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:13px;color:#6b7887;">Local cache · 18.4 MB</div>
+        <div style="border:1px solid #1e2630;padding:5px 14px;font-size:12px;letter-spacing:1.5px;color:#8fa0b0;cursor:pointer;" style-hover="border-color:#c0533f;color:#c0533f;">PURGE CACHE</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;iskAbbrev&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Display&quot;}, &quot;density&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;comfortable&quot;, &quot;compact&quot;], &quot;default&quot;: &quot;comfortable&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Display&quot;}}">
+class Component extends DCLogic {
+  state = { screen: 'assets', search: '', selChars: [], priceSide: 'sell', distFrom: 'min', region: 'All', category: 'All', flag: 'All', minValue: '0', selStation: null, sortKey: 'value', sortDir: -1, walletChar: null };
+
+  chars = [
+    { id: 'K', name: 'Keldan Vex', color: '#4fc3f7', system: 'Jita', region: 'The Forge', sec: '0.9', ship: 'Buzzard', status: 'DOCKED · JITA 4-4' },
+    { id: 'M', name: 'Mira Osteon', color: '#ffb300', system: 'Amarr', region: 'Domain', sec: '1.0', ship: 'Occator', status: 'DOCKED · EMPEROR FAMILY ACADEMY' },
+    { id: 'R', name: 'Rho Kestrel', color: '#8bd450', system: '1DQ1-A', region: 'Delve', sec: '-0.4', ship: 'Ishtar', status: 'IN SPACE · ON GRID' },
+  ];
+  stations = {
+    s1: { short: 'Jita 4-4 · Caldari Navy Assembly Plant', region: 'The Forge', j: { K: 0, M: 9, R: 38 } },
+    s2: { short: 'Perimeter · Tranquility Trading Tower', region: 'The Forge', j: { K: 1, M: 10, R: 39 } },
+    s3: { short: 'Amarr VIII · Emperor Family Academy', region: 'Domain', j: { K: 9, M: 0, R: 31 } },
+    s4: { short: 'Dodixie IX-20 · Federation Navy', region: 'Sinq Laison', j: { K: 14, M: 8, R: 35 } },
+    s5: { short: '1DQ1-A · 1-st Imperial Palace', region: 'Delve', j: { K: 38, M: 31, R: 0 } },
+    s6: { short: 'Rens VI-8 · Brutor Tribe Treasury', region: 'Heimatar', j: { K: 16, M: 10, R: 33 } },
+  };
+  assets = [
+    ['Raven Navy Issue','Battleship','Ships',1,'K','s1','Hangar',620e6,585e6],
+    ['Rorqual','Capital Industrial','Ships',1,'R','s5','Hangar',2.6e9,2.35e9],
+    ['Large Skill Injector','Consumable','Commodities',14,'K','s2','Hangar',812e6,790e6],
+    ['Nightmare','Battleship','Ships',1,'M','s3','Hangar',480e6,440e6],
+    ['Ishtar','Heavy Assault Cruiser','Ships',3,'R','s5','Hangar',320e6,295e6],
+    ['PLEX','Account Item','Commodities',500,'M','s3','Hangar',4.1e6,3.95e6],
+    ['Amulet Alpha','Cybernetics','Implants',1,'M','s3','Hangar',175e6,160e6],
+    ['Sisters Expanded Probe Launcher','Scan Probe Launcher','Modules',3,'K','s2','Hangar',95e6,88e6],
+    ['Sabre','Interdictor','Ships',2,'K','s1','Hangar',68e6,61e6],
+    ['Tritanium','Mineral','Minerals',12400000,'K','s1','Hangar',5.1,4.8],
+    ['Gecko','Combat Drone','Drones',40,'R','s5','Hangar',8.5e6,7.6e6],
+    ['Federation Navy Comet','Frigate','Ships',5,'K','s4','Hangar',22e6,19e6],
+    ['Imperial Navy Multispectrum Hardener','Armor Hardener','Modules',12,'M','s3','Hangar',22e6,19e6],
+    ['Oxygen Isotopes','Ice Product','Minerals',800000,'M','s6','Hangar',590,540],
+    ['Compressed Spodumain','Ore','Minerals',42000,'R','s5','Hangar',21000,19000],
+    ['Nanite Repair Paste','Nanite','Commodities',5000,'R','s5','Hangar',28000,24000],
+    ['Ishtar Blueprint (Copy)','Blueprint','Blueprints',6,'R','s5','Container',12e6,8e6],
+    ['Ballistic Control System II','Ballistic Control','Modules',24,'K','s1','Container',1.2e6,0.9e6],
+    ['Scourge Fury Heavy Missile','Missile','Ammunition',250000,'R','s5','Container',210,180],
+    ['425mm AutoCannon II','Projectile Turret','Modules',8,'R','s5','Fitted',3.2e6,2.7e6],
+    ['Damage Control II','Damage Control','Modules',60,'K','s4','Hangar',0.6e6,0.45e6],
+    ['Warrior II','Combat Drone','Drones',300,'M','s6','Hangar',0.3e6,0.25e6],
+    ['Pyerite','Mineral','Minerals',3100000,'M','s3','Hangar',12,10.5],
+  ].map(a => ({ name: a[0], group: a[1], cat: a[2], qty: a[3], char: a[4], st: a[5], flag: a[6], sell: a[7], buy: a[8] }));
+
+  fmt(n) {
+    if ((this.props.iskAbbrev ?? true)) {
+      if (n >= 1e9) return (n / 1e9).toFixed(2) + ' B';
+      if (n >= 1e6) return (n / 1e6).toFixed(1) + ' M';
+      if (n >= 1e3) return (n / 1e3).toFixed(1) + ' K';
+      return n.toFixed(n < 10 ? 2 : 0);
+    }
+    return Math.round(n).toLocaleString('en-US');
+  }
+  unitPrice(a) { return this.state.priceSide === 'sell' ? a.sell : a.buy; }
+  val(a) { return a.qty * this.unitPrice(a); }
+  jumps(a) {
+    const j = this.stations[a.st].j;
+    if (this.state.distFrom !== 'min') return j[this.state.distFrom];
+    const active = this.state.selChars.length ? this.state.selChars : ['K', 'M', 'R'];
+    return Math.min(...active.map(c => j[c]));
+  }
+  dot(color, sel) { return `width:8px;height:8px;flex:none;background:${sel === false ? 'transparent' : color};border:1px solid ${color};`; }
+
+  renderVals() {
+    const s = this.state;
+    const compact = (this.props.density ?? 'comfortable') === 'compact';
+    const charById = Object.fromEntries(this.chars.map(c => [c.id, c]));
+    const active = s.selChars.length ? s.selChars : ['K', 'M', 'R'];
+    const q = s.search.trim().toLowerCase();
+
+    const charFiltered = this.assets.filter(a => active.includes(a.char));
+    const filtered = charFiltered.filter(a => {
+      const st = this.stations[a.st];
+      if (s.region !== 'All' && st.region !== s.region) return false;
+      if (s.category !== 'All' && a.cat !== s.category) return false;
+      if (s.flag !== 'All' && a.flag !== s.flag) return false;
+      if (this.val(a) < Number(s.minValue)) return false;
+      if (s.selStation && a.st !== s.selStation) return false;
+      if (q && !(a.name + ' ' + a.group + ' ' + st.short).toLowerCase().includes(q)) return false;
+      return true;
+    });
+
+    const dir = s.sortDir;
+    const sorted = [...filtered].sort((a, b) => {
+      const k = s.sortKey;
+      if (k === 'name') return a.name.localeCompare(b.name) * dir;
+      if (k === 'qty') return (a.qty - b.qty) * dir;
+      if (k === 'jumps') return (this.jumps(a) - this.jumps(b)) * dir;
+      return (this.val(a) - this.val(b)) * dir;
+    });
+
+    const flagStyles = {
+      Fitted: 'flex:none;font-size:10px;letter-spacing:1.5px;color:#ffb300;border:1px solid #4a3a10;padding:1px 5px;',
+      Container: 'flex:none;font-size:10px;letter-spacing:1.5px;color:#8fa0b0;border:1px solid #26313d;padding:1px 5px;',
+      Hangar: 'display:none;',
+    };
+    const rows = sorted.map(a => {
+      const j = this.jumps(a), c = charById[a.char];
+      return {
+        name: a.name, qty: a.qty.toLocaleString('en-US'), group: a.group, owner: c.name,
+        dotStyle: this.dot(c.color), location: this.stations[a.st].short,
+        jumps: String(j), jumpColor: j === 0 ? '#8bd450' : j <= 10 ? '#cfd8e0' : '#c0533f',
+        unit: this.fmt(this.unitPrice(a)), value: this.fmt(this.val(a)),
+        flagLabel: a.flag === 'Container' ? 'CTNR' : a.flag.toUpperCase(), flagStyle: flagStyles[a.flag],
+      };
+    });
+
+    const sumVal = arr => arr.reduce((t, a) => t + this.val(a), 0);
+    const treeSource = charFiltered.filter(a => !q || (a.name + ' ' + a.group).toLowerCase().includes(q) || this.stations[a.st].short.toLowerCase().includes(q));
+    const regions = {};
+    treeSource.forEach(a => {
+      const st = this.stations[a.st], r = regions[st.region] || (regions[st.region] = { v: 0, st: {} });
+      r.v += this.val(a);
+      const e = r.st[a.st] || (r.st[a.st] = { n: 0 });
+      e.n++;
+    });
+    const tree = Object.entries(regions).sort((a, b) => b[1].v - a[1].v).map(([name, r]) => ({
+      name: name.toUpperCase(), value: this.fmt(r.v),
+      stations: Object.entries(r.st).map(([id, e]) => ({
+        short: this.stations[id].short, count: String(e.n),
+        style: `display:flex;gap:6px;align-items:center;padding:4px 6px 4px 10px;font-size:13.5px;cursor:pointer;border-left:2px solid ${s.selStation === id ? '#4fc3f7' : '#1e2630'};color:${s.selStation === id ? '#4fc3f7' : '#8fa0b0'};background:${s.selStation === id ? '#131a22' : 'transparent'};`,
+        go: () => this.setState({ selStation: s.selStation === id ? null : id }),
+      })),
+    }));
+
+    const charChips = [{ id: null, name: 'All characters', color: '#6b7887', v: sumVal(this.assets) }]
+      .concat(this.chars.map(c => ({ id: c.id, name: c.name, color: c.color, v: sumVal(this.assets.filter(a => a.char === c.id)) })))
+      .map(c => {
+        const sel = c.id === null ? s.selChars.length === 0 : s.selChars.includes(c.id);
+        return {
+          name: c.name, value: this.fmt(c.v), dotStyle: this.dot(c.color, sel),
+          style: `display:flex;align-items:center;gap:8px;border:1px solid ${sel ? '#3a4a5c' : '#1e2630'};background:${sel ? '#131a22' : 'transparent'};padding:6px 9px;font-size:14px;cursor:pointer;color:${sel ? '#e4ebf1' : '#8fa0b0'};`,
+          go: () => {
+            if (c.id === null) return this.setState({ selChars: [] });
+            const next = s.selChars.includes(c.id) ? s.selChars.filter(x => x !== c.id) : [...s.selChars, c.id];
+            this.setState({ selChars: next });
+          },
+        };
+      });
+
+    const tabDefs = [['assets', 'ASSETS'], ['dash', 'DASHBOARD'], ['wallet', 'WALLET'], ['loc', 'LOCATIONS'], ['auth', 'CHARACTERS'], ['settings', 'SETTINGS']];
+    const tabs = tabDefs.map(([id, label]) => ({
+      label, go: () => this.setState({ screen: id }),
+      style: `padding:8px 16px;font-size:13px;letter-spacing:2px;cursor:pointer;border-bottom:2px solid ${s.screen === id ? '#4fc3f7' : 'transparent'};color:${s.screen === id ? '#eef4f8' : '#6b7887'};`,
+    }));
+
+    const btn = on => `padding:5px 14px;font-size:12px;letter-spacing:1.5px;cursor:pointer;${on ? 'background:#4fc3f7;color:#0b0d10;font-weight:600;' : 'color:#6b7887;'}`;
+
+    const charCards = this.chars.map(c => {
+      const mine = this.assets.filter(a => a.char === c.id);
+      const top = [...mine].sort((a, b) => this.val(b) - this.val(a))[0];
+      return { name: c.name.toUpperCase(), dotStyle: this.dot(c.color), value: this.fmt(sumVal(mine)), stacks: String(mine.length), top: top ? top.name.toUpperCase() : '—' };
+    });
+
+    const regAll = {};
+    this.assets.forEach(a => { const r = this.stations[a.st].region; regAll[r] = (regAll[r] || 0) + this.val(a); });
+    const maxReg = Math.max(...Object.values(regAll));
+    const regionBars = Object.entries(regAll).sort((a, b) => b[1] - a[1]).map(([name, v]) => ({
+      name: name.toUpperCase(), value: this.fmt(v),
+      barStyle: `height:6px;background:#4fc3f7;opacity:0.85;width:${Math.max(2, Math.round(v / maxReg * 100))}%;`,
+    }));
+
+    const topRows = [...this.assets].sort((a, b) => this.val(b) - this.val(a)).slice(0, 8).map((a, i) => ({
+      rank: String(i + 1).padStart(2, '0'), name: a.name, owner: charById[a.char].name,
+      dotStyle: this.dot(charById[a.char].color), location: this.stations[a.st].short, value: this.fmt(this.val(a)),
+    }));
+
+    const locCards = this.chars.map(c => {
+      const stationVals = Object.entries(this.stations).map(([id, st]) => ({
+        id, short: st.short, jumps: st.j[c.id], v: sumVal(this.assets.filter(a => a.st === id)),
+      })).filter(x => x.v > 0).sort((a, b) => a.jumps - b.jumps).slice(0, 4);
+      const secNum = Number(c.sec);
+      return {
+        name: c.name, initials: c.name.split(' ').map(w => w[0]).join(''), status: c.status,
+        avatarStyle: `width:44px;height:44px;flex:none;border:1px solid ${c.color};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;letter-spacing:1px;`,
+        system: c.system, region: c.region, sec: c.sec, ship: c.ship,
+        secStyle: `font-family:'IBM Plex Mono',monospace;font-size:11px;color:${secNum >= 0.5 ? '#8bd450' : secNum > 0 ? '#ffb300' : '#c0533f'};`,
+        value: this.fmt(sumVal(this.assets.filter(a => a.char === c.id))) + ' ISK',
+        nearest: stationVals.map(x => ({
+          jumps: x.jumps === 0 ? 'HERE' : x.jumps + ' J', jumpColor: x.jumps === 0 ? '#8bd450' : x.jumps <= 10 ? '#cfd8e0' : '#6b7887',
+          short: x.short, value: this.fmt(x.v),
+        })),
+      };
+    });
+
+    const wallets = { K: { bal: 4.82e9, delta: 612e6 }, M: { bal: 1.37e9, delta: -184e6 }, R: { bal: 9.14e9, delta: 1.9e9 } };
+    const walletTotalN = Object.values(wallets).reduce((t, w) => t + w.bal, 0);
+    const walletCards = this.chars.map(c => {
+      const w = wallets[c.id];
+      return {
+        name: c.name.toUpperCase(), dotStyle: this.dot(c.color), balance: this.fmt(w.bal),
+        delta: (w.delta >= 0 ? '+' : '−') + this.fmt(Math.abs(w.delta)), deltaColor: w.delta >= 0 ? '#8bd450' : '#c0533f',
+      };
+    });
+    const journalData = [
+      ['08-30 11:42', 'R', 'Bounty prizes (Delve ratting)', 'bounty_prizes', 38.4e6, null],
+      ['08-30 10:15', 'K', 'Sold 4 × Large Skill Injector', 'market_transaction', 3.21e9, 's2'],
+      ['08-30 10:15', 'K', 'Broker fee', 'brokers_fee', -48.2e6, 's1'],
+      ['08-29 22:03', 'M', 'Contract deposit — courier to Rens', 'contract_deposit', -12e6, 's3'],
+      ['08-29 19:47', 'R', 'Bought Gecko × 15', 'market_transaction', -127.5e6, 's5'],
+      ['08-29 14:20', 'M', 'PLEX sale escrow released', 'market_escrow', 2.05e9, 's3'],
+      ['08-28 23:58', 'K', 'Sales tax', 'transaction_tax', -96.3e6, 's1'],
+      ['08-28 16:31', 'R', 'Insurance payout — Ishtar', 'insurance', 41.7e6, null],
+      ['08-28 09:12', 'M', 'Transfer to Rho Kestrel', 'player_donation', -500e6, null],
+      ['08-27 20:05', 'K', 'Bought Sabre × 2', 'market_transaction', -136e6, 's1'],
+      ['08-27 12:40', 'R', 'Sold Compressed Spodumain', 'market_transaction', 612e6, 's5'],
+      ['08-26 18:22', 'M', 'Bought Oxygen Isotopes', 'market_transaction', -472e6, 's6'],
+    ];
+    const wj = journalData.filter(j => !s.walletChar || j[1] === s.walletChar);
+    const typeLabel = j => {
+      const map = { bounty_prizes: 'BOUNTY PRIZES', brokers_fee: 'FEES + TAX', transaction_tax: 'FEES + TAX', contract_deposit: 'CONTRACTS', market_escrow: 'ESCROW RELEASED', insurance: 'INSURANCE', player_donation: 'TRANSFERS' };
+      if (j[3] === 'market_transaction') return j[4] >= 0 ? 'MARKET SELLS' : 'MARKET BUYS';
+      return map[j[3]] || 'OTHER';
+    };
+    const flowMap = {};
+    wj.forEach(j => { const k = typeLabel(j); flowMap[k] = (flowMap[k] || 0) + j[4]; });
+    const flows = Object.entries(flowMap).sort((a, b) => b[1] - a[1]);
+    const maxFlow = Math.max(...flows.map(f => Math.abs(f[1])), 1);
+    const flowBars = flows.map(([name, v]) => ({
+      name, value: (v >= 0 ? '+' : '−') + this.fmt(Math.abs(v)), color: v >= 0 ? '#8bd450' : '#c0533f',
+      barStyle: `height:6px;background:${v >= 0 ? '#8bd450' : '#c0533f'};opacity:0.8;width:${Math.max(2, Math.round(Math.abs(v) / maxFlow * 100))}%;`,
+    }));
+    const stMap = {}; let spaceIn = 0, spaceOut = 0;
+    wj.forEach(j => {
+      if (!j[5]) { j[4] >= 0 ? spaceIn += j[4] : spaceOut += j[4]; return; }
+      const e = stMap[j[5]] || (stMap[j[5]] = { inV: 0, outV: 0 });
+      j[4] >= 0 ? e.inV += j[4] : e.outV += j[4];
+    });
+    const stationFlows = Object.entries(stMap).map(([id, e]) => {
+      const net = e.inV + e.outV;
+      return {
+        name: this.stations[id].short, inV: e.inV ? '+' + this.fmt(e.inV) : '—', outV: e.outV ? '−' + this.fmt(-e.outV) : '—',
+        netV: (net >= 0 ? '+' : '−') + this.fmt(Math.abs(net)), netColor: net >= 0 ? '#8bd450' : '#c0533f', net,
+      };
+    }).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+    const spaceNet = spaceIn + spaceOut;
+    const journal = wj.map(j => ({
+      date: j[0], owner: charById[j[1]].name, dotStyle: this.dot(charById[j[1]].color),
+      desc: j[2], type: j[3], station: j[5] ? this.stations[j[5]].short : '— in space',
+      amount: (j[4] >= 0 ? '+' : '−') + this.fmt(Math.abs(j[4])), amtColor: j[4] >= 0 ? '#8bd450' : '#c0533f',
+    }));
+    const walletChips = [{ id: null, name: 'All characters', color: '#6b7887' }].concat(this.chars.map(c => ({ id: c.id, name: c.name, color: c.color }))).map(c => {
+      const sel = s.walletChar === c.id;
+      return {
+        name: c.name, dotStyle: this.dot(c.color, sel),
+        style: `display:flex;align-items:center;gap:7px;border:1px solid ${sel ? '#3a4a5c' : '#1e2630'};background:${sel ? '#131a22' : 'transparent'};padding:5px 12px;font-size:13.5px;cursor:pointer;color:${sel ? '#e4ebf1' : '#8fa0b0'};`,
+        go: () => this.setState({ walletChar: c.id }),
+      };
+    });
+
+    const authRows = this.chars.map((c, i) => ({
+      name: c.name, dotStyle: this.dot(c.color), scopes: '4/4 GRANTED',
+      expires: ['in 18 min', 'in 12 min', 'in 4 min'][i], sync: ['2 min ago', '2 min ago', '41 min ago'][i],
+    }));
+
+    const ind = k => s.sortKey === k ? (dir === 1 ? '▲' : '▼') : '';
+    const setSort = k => this.setState(p => ({ sortKey: k, sortDir: p.sortKey === k ? -p.sortDir : (k === 'name' || k === 'jumps' ? 1 : -1) }));
+
+    return {
+      isAssets: s.screen === 'assets', isDash: s.screen === 'dash', isWallet: s.screen === 'wallet', isLoc: s.screen === 'loc', isAuth: s.screen === 'auth', isSettings: s.screen === 'settings',
+      tabs, charChips, tree, rows,
+      search: s.search, distFrom: s.distFrom, region: s.region, category: s.category, flag: s.flag, minValue: s.minValue,
+      setSearch: e => this.setState({ search: e.target.value }),
+      setDistFrom: e => this.setState({ distFrom: e.target.value }),
+      setRegion: e => this.setState({ region: e.target.value }),
+      setCategory: e => this.setState({ category: e.target.value }),
+      setFlag: e => this.setState({ flag: e.target.value }),
+      setMinValue: e => this.setState({ minValue: e.target.value }),
+      clearFilters: () => this.setState({ search: '', selChars: [], region: 'All', category: 'All', flag: 'All', minValue: '0', selStation: null }),
+      setSell: () => this.setState({ priceSide: 'sell' }), setBuy: () => this.setState({ priceSide: 'buy' }),
+      sellStyle: btn(s.priceSide === 'sell'), buyStyle: btn(s.priceSide === 'buy'),
+      sortByName: () => setSort('name'), sortByQty: () => setSort('qty'), sortByJumps: () => setSort('jumps'), sortByValue: () => setSort('value'),
+      indName: ind('name'), indQty: ind('qty'), indJumps: ind('jumps'), indValue: ind('value'),
+      netWorth: this.fmt(this.assets.reduce((t, a) => t + this.val(a), 0)),
+      filteredValue: this.fmt(sumVal(filtered)), rowCount: String(rows.length),
+      priceLabel: s.priceSide.toUpperCase(),
+      charCards, regionBars, topRows, locCards, authRows,
+      walletTotal: this.fmt(walletTotalN), walletCards, flowBars, journalRows: journal, walletChips, stationFlows,
+      spaceFlow: (spaceNet >= 0 ? '+' : '−') + this.fmt(Math.abs(spaceNet)) + ' NET',
+      journalScope: s.walletChar ? charById[s.walletChar].name.toUpperCase() : 'ALL CHARACTERS',
+      net30: (flows.reduce((t, f) => t + f[1], 0) >= 0 ? '+' : '−') + this.fmt(Math.abs(flows.reduce((t, f) => t + f[1], 0))),
+      grandTotal: this.fmt(walletTotalN + this.assets.reduce((t, a) => t + this.val(a), 0)),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HangarScope.Views.CharactersView">
+  <ScrollViewer>
+    <StackPanel Margin="28,24" Spacing="20" MaxWidth="980" HorizontalAlignment="Left">
+
+      <!-- link panel -->
+      <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="20">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Classes="action accent" Command="{Binding LinkCharacterCommand}" Padding="22,10" VerticalAlignment="Center">
+            <TextBlock Text="AUTHENTICATE VIA EVE SSO →" FontSize="14" LetterSpacing="2"/>
+          </Button>
+          <StackPanel Margin="0,0,20,0">
+            <TextBlock Text="LINK A CHARACTER" FontSize="15" LetterSpacing="2" Foreground="{StaticResource Bright}"/>
+            <TextBlock Text="Authorizes read-only ESI scopes via EVE single sign-on. Tokens are stored locally and refreshed automatically. No credentials pass through this app."
+                       FontSize="14" Foreground="{StaticResource Muted}" TextWrapping="Wrap" MaxWidth="520" Margin="0,4,0,0" HorizontalAlignment="Left"/>
+            <TextBlock Text="{Binding LinkStatusText}" FontSize="12" LetterSpacing="1" Foreground="{StaticResource Accent}" Margin="0,6,0,0"/>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- linked characters table -->
+      <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1">
+        <StackPanel>
+          <Border Height="36" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,0,1">
+            <Grid Margin="16,0" ColumnDefinitions="1.6*,1.4*,1*,1*,1*">
+              <TextBlock Grid.Column="0" Text="CHARACTER" Classes="label" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="1" Text="SCOPES" Classes="label" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="2" Text="TOKEN EXPIRES" Classes="label" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="3" Text="LAST SYNC" Classes="label" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="4" Text="ACTIONS" Classes="label" TextAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
+          <ItemsControl ItemsSource="{Binding AuthRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Height="48" BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1">
+                  <Grid Margin="16,0" ColumnDefinitions="1.6*,1.4*,1*,1*,1*">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                      <Border Width="8" Height="8" Background="{Binding Color}" BorderBrush="{Binding Color}" BorderThickness="1"/>
+                      <TextBlock Text="{Binding Name}" FontSize="15" Foreground="{StaticResource Bright}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding ScopesText}" FontFamily="{StaticResource Mono}" FontSize="11" Foreground="{StaticResource Olive}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="2" Text="{Binding ExpiresText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="3" Text="{Binding SyncText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                      <Button Classes="action sync" Command="{Binding Sync}" Padding="12,4">
+                        <TextBlock Text="SYNC" FontSize="12" LetterSpacing="1.5"/>
+                      </Button>
+                      <Button Classes="action danger" Command="{Binding Unlink}" Padding="12,4">
+                        <TextBlock Text="UNLINK" FontSize="12" LetterSpacing="1.5"/>
+                      </Button>
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <TextBlock FontSize="12" LetterSpacing="1" Foreground="{StaticResource Dim}"
+                 Text="REQUIRED SCOPES · esi-assets.read_assets.v1 · esi-location.read_location.v1 · esi-location.read_ship_type.v1 · esi-universe.read_structures.v1 · esi-wallet.read_character_wallet.v1"/>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

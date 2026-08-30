@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:HangarScope.Views"
+             x:Class="HangarScope.Views.SettingsView">
+  <ScrollViewer>
+    <StackPanel Margin="28,24" Spacing="14" MaxWidth="980" HorizontalAlignment="Left">
+
+      <!-- ESI application -->
+      <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="18">
+        <StackPanel Spacing="14">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+              <Border Width="7" Height="7" VerticalAlignment="Center"
+                      Background="{Binding CredentialsVerified, Converter={x:Static v:Conv.GreenDot}}"/>
+              <TextBlock Text="{Binding SettingsStatusText}" FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Green}"/>
+            </StackPanel>
+            <TextBlock Text="ESI APPLICATION · SELF-HOSTED" Classes="label"/>
+          </DockPanel>
+          <TextBlock TextWrapping="Wrap" FontSize="14" Foreground="{StaticResource Muted}" MaxWidth="720" HorizontalAlignment="Left"
+                     Text="This instance uses your own EVE developer application. Register one at developers.eveonline.com, set the callback URL below, and paste the client ID and secret key here. They are stored encrypted on this machine and never leave it."/>
+          <Grid ColumnDefinitions="*,14,*">
+            <StackPanel Grid.Column="0">
+              <TextBlock Text="CLIENT ID" Classes="label" Margin="0,0,0,6"/>
+              <TextBox Classes="mono" Text="{Binding ClientIdInput}" Padding="10,8"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+              <TextBlock Text="SECRET KEY" Classes="label" Margin="0,0,0,6"/>
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="action" Command="{Binding ToggleShowSecretCommand}" Padding="14,8" Margin="8,0,0,0">
+                  <TextBlock Text="SHOW" FontSize="12" LetterSpacing="1.5"/>
+                </Button>
+                <Panel>
+                  <TextBox Classes="mono" Text="{Binding SecretInput}" PasswordChar="•" Padding="10,8"
+                           IsVisible="{Binding !ShowSecret}"/>
+                  <TextBox Classes="mono" Text="{Binding SecretInput}" Padding="10,8"
+                           IsVisible="{Binding ShowSecret}"/>
+                </Panel>
+              </DockPanel>
+            </StackPanel>
+          </Grid>
+          <Grid ColumnDefinitions="*,14,Auto,14,Auto" VerticalAlignment="Bottom">
+            <StackPanel Grid.Column="0">
+              <TextBlock Text="CALLBACK URL" Classes="label" Margin="0,0,0,6"/>
+              <TextBox Classes="mono" Text="{Binding CallbackUrl}" IsReadOnly="True" Foreground="{StaticResource Dim}" Padding="10,8"/>
+            </StackPanel>
+            <Button Grid.Column="2" Classes="action" Command="{Binding TestConnectionCommand}" Padding="16,8" VerticalAlignment="Bottom">
+              <TextBlock Text="TEST CONNECTION" FontSize="12" LetterSpacing="1.5"/>
+            </Button>
+            <Button Grid.Column="4" Classes="action accent" Command="{Binding SaveCredentialsCommand}" Padding="18,8" VerticalAlignment="Bottom">
+              <TextBlock Text="SAVE CREDENTIALS" FontSize="12" LetterSpacing="1.5"/>
+            </Button>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Grid ColumnDefinitions="*,14,*">
+        <!-- market data -->
+        <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="18" VerticalAlignment="Top">
+          <StackPanel Spacing="14">
+            <TextBlock Text="MARKET DATA" Classes="label"/>
+            <DockPanel>
+              <ComboBox DockPanel.Dock="Right" Width="180" ItemsSource="{Binding PriceHubOptions}" SelectedIndex="{Binding PriceHubIndex}"/>
+              <TextBlock Text="Price hub" FontSize="15" VerticalAlignment="Center"/>
+            </DockPanel>
+            <DockPanel>
+              <ComboBox DockPanel.Dock="Right" Width="180" ItemsSource="{Binding PriceSideOptions}" SelectedIndex="{Binding PriceSideIndex}"/>
+              <TextBlock Text="Default price side" FontSize="15" VerticalAlignment="Center"/>
+            </DockPanel>
+            <DockPanel>
+              <ComboBox DockPanel.Dock="Right" Width="180" ItemsSource="{Binding PriceRefreshOptions}" SelectedIndex="{Binding PriceRefreshIndex}"/>
+              <TextBlock Text="Price refresh" FontSize="15" VerticalAlignment="Center"/>
+            </DockPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- sync -->
+        <Border Grid.Column="2" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="18" VerticalAlignment="Top">
+          <StackPanel Spacing="14">
+            <TextBlock Text="SYNC" Classes="label"/>
+            <DockPanel>
+              <ComboBox DockPanel.Dock="Right" Width="200" ItemsSource="{Binding AssetSyncOptions}" SelectedIndex="{Binding AssetSyncIndex}"/>
+              <TextBlock Text="Asset sync interval" FontSize="15" VerticalAlignment="Center"/>
+            </DockPanel>
+            <DockPanel>
+              <ComboBox DockPanel.Dock="Right" Width="200" ItemsSource="{Binding LocationTrackOptions}" SelectedIndex="{Binding LocationTrackIndex}"/>
+              <TextBlock Text="Track character location" FontSize="15" VerticalAlignment="Center"/>
+            </DockPanel>
+            <DockPanel>
+              <ComboBox DockPanel.Dock="Right" Width="200" ItemsSource="{Binding CitadelOptions}" SelectedIndex="{Binding CitadelIndex}"/>
+              <TextBlock Text="Resolve citadel names" FontSize="15" VerticalAlignment="Center"/>
+            </DockPanel>
+            <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="action danger" Command="{Binding PurgeCacheCommand}" Padding="14,5">
+                  <TextBlock Text="PURGE CACHE" FontSize="12" LetterSpacing="1.5"/>
+                </Button>
+                <TextBlock Text="{Binding CacheSizeText}" FontSize="13" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+              </DockPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
