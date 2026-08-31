@@ -26,6 +26,17 @@ public sealed class SyncService : IDisposable
     public event Action<Snapshot>? SnapshotChanged;
     public event Action<string>? SyncStatus;
 
+    private void Status(string msg)
+    {
+        SyncStatus?.Invoke(msg);
+        try
+        {
+            File.AppendAllText(System.IO.Path.Combine(_store.Root, "sync.log"),
+                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} {msg}{Environment.NewLine}");
+        }
+        catch { /* logging is best effort */ }
+    }
+
     private sealed class CharState
     {
         public long SystemId { get; set; }
@@ -125,8 +136,11 @@ public sealed class SyncService : IDisposable
             rec.RefreshTokenEnc = JsonStore.Protect(tokens.RefreshToken);
             rec.Scopes = tokens.Scopes;
             _store.Save("characters.json", _auth);
+            UpdateSchedules();
+            Broadcast(); // show the linked character immediately; data fills in as sync progresses
+            Status($"Linked {tokens.CharacterName} — syncing…");
             _ = SyncAll();
-            return (true, $"Linked {tokens.CharacterName}.");
+            return (true, $"Linked {tokens.CharacterName}. First sync running…");
         }
         catch (Exception ex) { return (false, ex.Message); }
     }
@@ -158,7 +172,7 @@ public sealed class SyncService : IDisposable
         }
         catch (Exception ex)
         {
-            SyncStatus?.Invoke($"Token refresh failed for {rec.CharacterName}: {ex.Message}");
+            Status($"Token refresh failed for {rec.CharacterName}: {ex.Message}");
             return null;
         }
     }
@@ -172,21 +186,24 @@ public sealed class SyncService : IDisposable
         {
             foreach (var rec in _auth.ToList())
             {
-                SyncStatus?.Invoke($"Syncing {rec.CharacterName}…");
+                Status($"Syncing {rec.CharacterName}…");
                 var token = await Token(rec, ct);
                 if (token == null) continue;
                 await SyncCharacter(rec, token, ct);
                 rec.LastSyncAt = DateTimeOffset.UtcNow;
+                Broadcast(); // assets/location/wallet for this character appear before prices finish
             }
             _store.Save("characters.json", _auth);
             await RefreshPricesInternal(ct);
+            Broadcast();
+            Status("Computing jump routes…");
             await ComputeRoutes(ct);
             _universe.Persist();
-            SyncStatus?.Invoke("Sync complete.");
+            Status("Sync complete.");
             Broadcast();
         }
-        catch (Exception ex) { SyncStatus?.Invoke("Sync failed: " + ex.Message); }
-        finally { _syncLock.Release(); }
+        catch (Exception ex) { Status("Sync failed: " + ex.Message); }
+        finally { _syncLock.Release(); Broadcast(); }
     }
 
     public async Task SyncOne(long charId, CancellationToken ct = default)
@@ -263,12 +280,14 @@ public sealed class SyncService : IDisposable
             }
             _store.Save("cache/journal.json", _journal);
         }
-        catch (Exception ex) { SyncStatus?.Invoke($"Journal sync failed: {ex.Message}"); }
+        catch (Exception ex) { Status($"Journal sync failed: {ex.Message}"); }
 
         // assets
         try
         {
+            Status($"Fetching assets for {rec.CharacterName}…");
             var items = await _esi.GetPaged($"/characters/{id}/assets/", token, ct);
+            Status($"{items.Count:N0} asset items · resolving types & stations…");
             var byItemId = items.ToDictionary(i => i.GetProperty("item_id").GetInt64());
             var stacks = new Dictionary<(long type, long station, OwnershipFlag flag), long>();
             var typeIds = new HashSet<long>();
@@ -319,7 +338,7 @@ public sealed class SyncService : IDisposable
                 if (st != null) await _universe.ResolveSystem(st.SystemId, ct);
             }
         }
-        catch (Exception ex) { SyncStatus?.Invoke($"Asset sync failed for {rec.CharacterName}: {ex.Message}"); }
+        catch (Exception ex) { Status($"Asset sync failed for {rec.CharacterName}: {ex.Message}"); }
 
         _store.Save("cache/charstate.json", _charState);
     }
@@ -361,7 +380,7 @@ public sealed class SyncService : IDisposable
             await _universe.ResolveTypes(new[] { shipTypeId }, ct);
             state.ShipName = _universe.Cache.Types.TryGetValue(shipTypeId, out var te) ? te.Name : $"Type {shipTypeId}";
         }
-        catch (Exception ex) { SyncStatus?.Invoke($"Location sync failed for {rec.CharacterName}: {ex.Message}"); }
+        catch (Exception ex) { Status($"Location sync failed for {rec.CharacterName}: {ex.Message}"); }
     }
 
     public async Task SyncLocations(CancellationToken ct = default)
@@ -394,7 +413,7 @@ public sealed class SyncService : IDisposable
         var hub = PriceHubDef.ByKey(_settings.PriceHub);
         var typeIds = _assetCache.Values.SelectMany(v => v).Select(r => r.TypeId).Distinct().ToList();
         if (typeIds.Count == 0) return;
-        SyncStatus?.Invoke($"Fetching {typeIds.Count} prices from {hub.Label}…");
+        Status($"Fetching {typeIds.Count} prices from {hub.Label}…");
 
         var tasks = typeIds.Select(async tid =>
         {
@@ -597,3 +616,4 @@ public sealed class SyncService : IDisposable
         _assetTimer?.Dispose(); _locationTimer?.Dispose(); _priceTimer?.Dispose();
     }
 }
+

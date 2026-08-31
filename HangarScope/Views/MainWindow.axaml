@@ -99,6 +99,9 @@
             </StackPanel>
           </Border>
         </StackPanel>
+        <TextBlock DockPanel.Dock="Right" Text="{Binding SyncStatusText}" FontSize="11" LetterSpacing="1"
+                   Foreground="{StaticResource Dim}" VerticalAlignment="Center" Margin="0,0,20,0"
+                   TextTrimming="CharacterEllipsis" MaxWidth="340"/>
         <Border/>
       </DockPanel>
     </Border>

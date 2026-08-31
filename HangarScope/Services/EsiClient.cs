@@ -11,7 +11,7 @@ public sealed class EsiClient
 {
     public const string BaseUrl = "https://esi.evetech.net/latest";
     private readonly HttpClient _http;
-    private readonly Dictionary<string, (string etag, string body)> _etags = new();
+    private readonly Dictionary<string, (string etag, string body, int pages)> _etags = new();
     private readonly SemaphoreSlim _gate = new(8);
 
     public EsiClient()
@@ -43,7 +43,7 @@ public sealed class EsiClient
                 using var res = await _http.SendAsync(req, ct);
 
                 if (res.StatusCode == HttpStatusCode.NotModified)
-                    return (cached.body, 1);
+                    return (cached.body, cached.pages);
 
                 if ((int)res.StatusCode == 420 || (int)res.StatusCode == 429 || (int)res.StatusCode >= 500)
                 {
@@ -58,7 +58,7 @@ public sealed class EsiClient
                 var body = await res.Content.ReadAsStringAsync(ct);
                 var pages = res.Headers.TryGetValues("X-Pages", out var pv) && int.TryParse(pv.FirstOrDefault(), out var p) ? p : 1;
                 if (res.Headers.ETag is { } etag)
-                    _etags[cacheKey] = (etag.Tag, body);
+                    _etags[cacheKey] = (etag.Tag, body, pages);
                 return (body, pages);
             }
         }

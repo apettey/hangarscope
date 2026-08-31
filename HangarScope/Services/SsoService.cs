@@ -49,10 +49,11 @@ public sealed class SsoService
         var code = query["code"];
         var gotState = query["state"];
         var page = code != null && gotState == state
-            ? "<html><body style='background:#0b0d10;color:#8bd450;font-family:monospace;padding:40px'>HANGARSCOPE — character linked. You can close this tab.</body></html>"
-            : "<html><body style='background:#0b0d10;color:#c0533f;font-family:monospace;padding:40px'>HANGARSCOPE — authorization failed.</body></html>";
+            ? "<html><head><meta charset='utf-8'></head><body style='background:#0b0d10;color:#8bd450;font-family:monospace;padding:40px'>HANGARSCOPE — character linked. You can close this tab.</body></html>"
+            : "<html><head><meta charset='utf-8'></head><body style='background:#0b0d10;color:#c0533f;font-family:monospace;padding:40px'>HANGARSCOPE — authorization failed.</body></html>";
         var bytes = Encoding.UTF8.GetBytes(page);
-        ctx.Response.ContentType = "text/html";
+        ctx.Response.ContentType = "text/html; charset=utf-8";
+        ctx.Response.ContentEncoding = Encoding.UTF8;
         await ctx.Response.OutputStream.WriteAsync(bytes, ct);
         ctx.Response.Close();
 
