@@ -6,7 +6,14 @@ namespace HangarScope.Views;
 /// <summary>Small bool → brush/weight converters for state-dependent styling.</summary>
 public static class Conv
 {
-    private static IBrush Brush(string hex) => new SolidColorBrush(Color.Parse(hex));
+    private static readonly Dictionary<string, IBrush> Cache = new();
+
+    private static IBrush Brush(string hex)
+    {
+        if (!Cache.TryGetValue(hex, out var b))
+            Cache[hex] = b = new SolidColorBrush(Color.Parse(hex));
+        return b;
+    }
 
     public static readonly IValueConverter TabBorder =
         new FuncValueConverter<bool, IBrush>(active => active ? Brush("#4fc3f7") : Brushes.Transparent);

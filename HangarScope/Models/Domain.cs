@@ -44,6 +44,8 @@ public sealed class AssetStack
     public OwnershipFlag Flag { get; set; }
     public double Sell { get; set; }
     public double Buy { get; set; }
+    /// <summary>Precomputed lowercase "name group station" blob so search never allocates per keystroke.</summary>
+    public string Search { get; set; } = "";
 }
 
 public sealed class JournalEntry

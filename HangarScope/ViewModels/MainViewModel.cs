@@ -28,6 +28,18 @@ public sealed partial class MainViewModel : ObservableObject
     private int _sortDir = -1;
     private long? _walletChar;
 
+    /// <summary>Screens whose derived data is stale. Sections rebuild only when visible.</summary>
+    private readonly HashSet<string> _dirty = new();
+    private static readonly string[] AllSections = { "assets", "dash", "wallet", "loc", "auth" };
+
+    private static readonly string PerfLogPath = System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HangarScope", "perf.log");
+    private static void Perf(string msg)
+    {
+        try { System.IO.File.AppendAllText(PerfLogPath, $"{DateTime.Now:HH:mm:ss.fff} {msg}{Environment.NewLine}"); }
+        catch { /* diagnostics only */ }
+    }
+
     private static readonly Dictionary<string, IBrush> BrushCache = new();
     public static IBrush B(string hex)
     {
@@ -36,15 +48,36 @@ public sealed partial class MainViewModel : ObservableObject
         return b;
     }
 
+    private readonly DispatcherTimer _searchDebounce;
+    private readonly DispatcherTimer _snapDebounce;
+    private volatile bool _recomputeQueued;
+
     public MainViewModel(SyncService sync)
     {
         _sync = sync;
         _priceSide = sync.Settings.DefaultPriceSide == "buy" ? "buy" : "sell";
-        _sync.SnapshotChanged += snap => Dispatcher.UIThread.Post(() => { _snap = snap; Recompute(); });
+        _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+        _searchDebounce.Tick += (_, _) => { _searchDebounce.Stop(); Invalidate("assets"); };
+        // coalesce sync broadcast storms (one per character during SyncAll) into one recompute
+        // of the latest snapshot, 300ms after the last broadcast
+        _snapDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _snapDebounce.Tick += (_, _) => { _snapDebounce.Stop(); Invalidate(AllSections); };
+        _sync.SnapshotChanged += snap =>
+        {
+            _snap = snap;
+            if (_recomputeQueued) return;
+            _recomputeQueued = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _recomputeQueued = false;
+                _snapDebounce.Stop();
+                _snapDebounce.Start();
+            });
+        };
         _sync.SyncStatus += msg => Dispatcher.UIThread.Post(() => SyncStatusText = msg.ToUpperInvariant());
         _snap = sync.BuildSnapshot();
         LoadSettingsUi();
-        Recompute();
+        Invalidate(AllSections);
     }
 
     // =========================== global chrome ===========================
@@ -61,14 +94,30 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _buyActive;
     [ObservableProperty] private string _syncStatusText = "";
 
-    [RelayCommand] private void SelectTab(string id) { _screen = id; Recompute(); }
-    [RelayCommand] private void SetSell() { _priceSide = "sell"; Recompute(); }
-    [RelayCommand] private void SetBuy() { _priceSide = "buy"; Recompute(); }
+    [RelayCommand]
+    private void SelectTab(string id)
+    {
+        _screen = id;
+        ComputeGlobal();
+        if (_dirty.Contains(id)) ComputeSection(id);
+    }
+
+    [RelayCommand] private void SetSell() { _priceSide = "sell"; Invalidate(AllSections); }
+    [RelayCommand] private void SetBuy() { _priceSide = "buy"; Invalidate(AllSections); }
 
     // =========================== assets screen ===========================
 
     private string _searchText = "";
-    public string SearchText { get => _searchText; set { if (SetProperty(ref _searchText, value)) Recompute(); } }
+    public string SearchText
+    {
+        get => _searchText;
+        set
+        {
+            if (!SetProperty(ref _searchText, value)) return;
+            _searchDebounce.Stop();
+            _searchDebounce.Start(); // recompute 200ms after the last keystroke
+        }
+    }
 
     [ObservableProperty] private List<ChipVm> _charChips = new();
     [ObservableProperty] private List<TreeRegionVm> _tree = new();
@@ -101,42 +150,42 @@ public sealed partial class MainViewModel : ObservableObject
     public int DistFromIndex
     {
         get => _distFromIndex;
-        set { if (SetProperty(ref _distFromIndex, value) && !_loadingUi) { _distFrom = value <= 0 ? 0 : (long)(DistFromOptions.ElementAtOrDefault(value)?.Value ?? 0L); Recompute(); } }
+        set { if (SetProperty(ref _distFromIndex, value) && !_loadingUi) { _distFrom = value <= 0 ? 0 : (long)(DistFromOptions.ElementAtOrDefault(value)?.Value ?? 0L); Invalidate("assets"); } }
     }
 
     private int _regionIndex;
     public int RegionIndex
     {
         get => _regionIndex;
-        set { if (SetProperty(ref _regionIndex, value) && !_loadingUi) { _region = (string)(RegionOptions.ElementAtOrDefault(Math.Max(0, value))?.Value ?? "All"); Recompute(); } }
+        set { if (SetProperty(ref _regionIndex, value) && !_loadingUi) { _region = (string)(RegionOptions.ElementAtOrDefault(Math.Max(0, value))?.Value ?? "All"); Invalidate("assets"); } }
     }
 
     private int _categoryIndex;
     public int CategoryIndex
     {
         get => _categoryIndex;
-        set { if (SetProperty(ref _categoryIndex, value) && !_loadingUi) { _category = (string)(CategoryOptions.ElementAtOrDefault(Math.Max(0, value))?.Value ?? "All"); Recompute(); } }
+        set { if (SetProperty(ref _categoryIndex, value) && !_loadingUi) { _category = (string)(CategoryOptions.ElementAtOrDefault(Math.Max(0, value))?.Value ?? "All"); Invalidate("assets"); } }
     }
 
     private int _flagIndex;
     public int FlagIndex
     {
         get => _flagIndex;
-        set { if (SetProperty(ref _flagIndex, value) && !_loadingUi) { _flag = (string)(FlagOptions.ElementAtOrDefault(Math.Max(0, value))?.Value ?? "All"); Recompute(); } }
+        set { if (SetProperty(ref _flagIndex, value) && !_loadingUi) { _flag = (string)(FlagOptions.ElementAtOrDefault(Math.Max(0, value))?.Value ?? "All"); Invalidate("assets"); } }
     }
 
     private int _minValueIndex;
     public int MinValueIndex
     {
         get => _minValueIndex;
-        set { if (SetProperty(ref _minValueIndex, value) && !_loadingUi) { _minValue = (double)(MinValueOptions.ElementAtOrDefault(Math.Max(0, value))?.Value ?? 0d); Recompute(); } }
+        set { if (SetProperty(ref _minValueIndex, value) && !_loadingUi) { _minValue = (double)(MinValueOptions.ElementAtOrDefault(Math.Max(0, value))?.Value ?? 0d); Invalidate("assets"); } }
     }
 
     [RelayCommand]
     private void ClearFilters()
     {
         _loadingUi = true;
-        SearchText = "";
+        _searchText = ""; OnPropertyChanged(nameof(SearchText));
         _selChars.Clear();
         _region = "All"; RegionIndex = 0;
         _category = "All"; CategoryIndex = 0;
@@ -144,14 +193,21 @@ public sealed partial class MainViewModel : ObservableObject
         _minValue = 0; MinValueIndex = 0;
         _selStation = null;
         _loadingUi = false;
-        Recompute();
+        Invalidate("assets");
     }
 
-    [RelayCommand] private void SortBy(string key)
+    [RelayCommand]
+    private void SortBy(string key)
     {
         _sortDir = _sortKey == key ? -_sortDir : (key is "name" or "jumps" ? 1 : -1);
         _sortKey = key;
-        Recompute();
+        if (_filteredCache != null && _jumpsCache != null)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            ComputeRows(_filteredCache, _jumpsCache);
+            Perf($"recompute {sw.ElapsedMilliseconds}ms screen={_screen} sections=sort-only assets={_snap.Assets.Count}");
+        }
+        else Invalidate("assets");
     }
 
     // =========================== dashboard ===========================
@@ -277,72 +333,98 @@ public sealed partial class MainViewModel : ObservableObject
         _loadingUi = false;
     }
 
-    // =========================== recompute (the prototype's renderVals) ===========================
+    // =========================== recompute engine ===========================
+    // Sections rebuild lazily: an interaction marks the sections it affects dirty
+    // and only the visible one is recomputed; the rest rebuild on tab switch.
 
     private double Unit(AssetStack a) => _priceSide == "sell" ? a.Sell : a.Buy;
     private double Val(AssetStack a) => a.Qty * Unit(a);
 
-    private int Jumps(AssetStack a)
+    private void Invalidate(params string[] sections)
     {
-        if (!_snap.Stations.TryGetValue(a.StationId, out var st)) return -1;
-        if (_distFrom != 0) return st.Jumps.GetValueOrDefault(_distFrom, -1);
-        var active = _selChars.Count > 0 ? (IEnumerable<long>)_selChars : _snap.Characters.Select(c => c.Id);
-        var vals = active.Select(c => st.Jumps.GetValueOrDefault(c, -1)).Where(j => j >= 0).ToList();
-        return vals.Count > 0 ? vals.Min() : -1;
+        foreach (var s in sections) _dirty.Add(s);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        ComputeGlobal();
+        if (_dirty.Contains(_screen)) ComputeSection(_screen);
+        Perf($"recompute {sw.ElapsedMilliseconds}ms screen={_screen} sections={string.Join('+', sections)} assets={_snap.Assets.Count}");
     }
 
-    private void Recompute()
+    private void ComputeSection(string id)
+    {
+        switch (id)
+        {
+            case "assets": ComputeAssets(); break;
+            case "dash": ComputeDashboard(); break;
+            case "wallet": ComputeWallet(); break;
+            case "loc": ComputeLocations(); break;
+            case "auth": ComputeAuth(); break;
+        }
+        _dirty.Remove(id);
+    }
+
+    private void ComputeGlobal()
     {
         var snap = _snap;
-        var charById = snap.Characters.ToDictionary(c => c.Id);
-        var active = _selChars.Count > 0 ? _selChars.Where(charById.ContainsKey).ToHashSet() : charById.Keys.ToHashSet();
-        var q = _searchText.Trim().ToLowerInvariant();
-
         IsAssets = _screen == "assets"; IsDash = _screen == "dash"; IsWallet = _screen == "wallet";
         IsLoc = _screen == "loc"; IsAuth = _screen == "auth"; IsSettings = _screen == "settings";
         Tabs = new (string id, string label)[] { ("assets", "ASSETS"), ("dash", "DASHBOARD"), ("wallet", "WALLET"), ("loc", "LOCATIONS"), ("auth", "CHARACTERS"), ("settings", "SETTINGS") }
             .Select(t => new TabVm(t.id, t.label, _screen == t.id, new RelayCommand(() => SelectTab(t.id)))).ToList();
-
         SellActive = _priceSide == "sell"; BuyActive = _priceSide == "buy";
         PriceLabelText = _priceSide.ToUpperInvariant();
         NetWorthText = Formatting.Isk(snap.Assets.Sum(Val));
+        var hub = PriceHubDef.ByKey(_sync.Settings.PriceHub);
+        PriceStatusText = $"PRICES · ESI MARKET · {hub.Label} · SYNCED {Formatting.Ago(snap.PriceSyncedAt).ToUpperInvariant()}";
+        CacheSizeText = $"Local cache · {snap.CacheSizeBytes / 1024.0 / 1024.0:0.0} MB";
+    }
 
-        string StationName(long id) => snap.Stations.TryGetValue(id, out var st) ? st.Name : $"Location {id}";
-        string StationRegion(long id) => snap.Stations.TryGetValue(id, out var st) ? st.RegionName : "Unknown Region";
+    private string StationName(long id) => _snap.Stations.TryGetValue(id, out var st) ? st.Name : $"Location {id}";
+    private string StationRegion(long id) => _snap.Stations.TryGetValue(id, out var st) ? st.RegionName : "Unknown Region";
 
-        // ---- assets: filter + sort ----
-        var charFiltered = snap.Assets.Where(a => active.Contains(a.CharId)).ToList();
-        var filtered = charFiltered.Where(a =>
+    /// <summary>Jumps to a station under the current DISTANCE FROM setting (station-level, so computed once per station).</summary>
+    private Dictionary<long, int> StationJumps()
+    {
+        var active = _selChars.Count > 0 ? (IReadOnlyCollection<long>)_selChars : _snap.Characters.Select(c => c.Id).ToList();
+        var result = new Dictionary<long, int>(_snap.Stations.Count);
+        foreach (var st in _snap.Stations.Values)
         {
-            if (_region != "All" && StationRegion(a.StationId) != _region) return false;
-            if (_category != "All" && a.Category != _category) return false;
-            if (_flag != "All" && a.Flag.ToString() != _flag) return false;
-            if (Val(a) < _minValue) return false;
-            if (_selStation is { } sel && a.StationId != sel) return false;
-            if (q.Length > 0 && !($"{a.Name} {a.Group} {StationName(a.StationId)}").ToLowerInvariant().Contains(q)) return false;
-            return true;
-        }).ToList();
+            if (_distFrom != 0) { result[st.Id] = st.Jumps.GetValueOrDefault(_distFrom, -1); continue; }
+            var best = -1;
+            foreach (var c in active)
+            {
+                var j = st.Jumps.GetValueOrDefault(c, -1);
+                if (j >= 0 && (best < 0 || j < best)) best = j;
+            }
+            result[st.Id] = best;
+        }
+        return result;
+    }
 
-        var sorted = filtered.OrderBy(a => 0);
-        sorted = (_sortKey, _sortDir) switch
+    private List<AssetStack>? _filteredCache;
+    private Dictionary<long, int>? _jumpsCache;
+
+    /// <summary>Rows + sort indicators only — reused by sort clicks without re-filtering the rail.</summary>
+    private void ComputeRows(List<AssetStack> filtered, Dictionary<long, int> jumps)
+    {
+        var charById = _snap.Characters.ToDictionary(c => c.Id);
+        var sorted = (_sortKey, _sortDir) switch
         {
             ("name", 1) => filtered.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase),
             ("name", _) => filtered.OrderByDescending(a => a.Name, StringComparer.OrdinalIgnoreCase),
             ("qty", 1) => filtered.OrderBy(a => a.Qty),
             ("qty", _) => filtered.OrderByDescending(a => a.Qty),
-            ("jumps", 1) => filtered.OrderBy(Jumps),
-            ("jumps", _) => filtered.OrderByDescending(Jumps),
+            ("jumps", 1) => filtered.OrderBy(a => jumps.GetValueOrDefault(a.StationId, -1)),
+            ("jumps", _) => filtered.OrderByDescending(a => jumps.GetValueOrDefault(a.StationId, -1)),
             (_, 1) => filtered.OrderBy(Val),
             _ => filtered.OrderByDescending(Val),
         };
 
         Rows = sorted.Select(a =>
         {
-            var j = Jumps(a);
+            var j = jumps.GetValueOrDefault(a.StationId, -1);
             var c = charById[a.CharId];
             return new AssetRowVm(
                 a.Name,
-                a.Flag == OwnershipFlag.Container ? "CTNR" : a.Flag.ToString().ToUpperInvariant(),
+                a.Flag == OwnershipFlag.Container ? "CTNR" : a.Flag == OwnershipFlag.Fitted ? "FITTED" : "HANGAR",
                 a.Flag != OwnershipFlag.Hangar,
                 a.Flag == OwnershipFlag.Fitted,
                 Formatting.Qty(a.Qty), a.Group, c.Name, B(c.Color),
@@ -355,15 +437,36 @@ public sealed partial class MainViewModel : ObservableObject
         string Ind(string k) => _sortKey == k ? (_sortDir == 1 ? " ▲" : " ▼") : "";
         IndName = Ind("name"); IndQty = Ind("qty"); IndJumps = Ind("jumps"); IndValue = Ind("value");
         RowCountText = Rows.Count.ToString();
+    }
+
+    private void ComputeAssets()
+    {
+        var snap = _snap;
+        var charById = snap.Characters.ToDictionary(c => c.Id);
+        var active = _selChars.Count > 0 ? _selChars.Where(charById.ContainsKey).ToHashSet() : charById.Keys.ToHashSet();
+        var q = _searchText.Trim().ToLowerInvariant();
+        var jumps = StationJumps();
+
+        OwnershipFlag? flagFilter = _flag == "All" ? null : Enum.Parse<OwnershipFlag>(_flag);
+        var charFiltered = snap.Assets.Where(a => active.Contains(a.CharId)).ToList();
+        var filtered = charFiltered.Where(a =>
+        {
+            if (_region != "All" && StationRegion(a.StationId) != _region) return false;
+            if (_category != "All" && a.Category != _category) return false;
+            if (flagFilter is { } ff && a.Flag != ff) return false;
+            if (Val(a) < _minValue) return false;
+            if (_selStation is { } sel && a.StationId != sel) return false;
+            if (q.Length > 0 && !a.Search.Contains(q)) return false;
+            return true;
+        }).ToList();
+
+        _filteredCache = filtered;
+        _jumpsCache = jumps;
+        ComputeRows(filtered, jumps);
         FilteredValueText = Formatting.Isk(filtered.Sum(Val));
 
-        var hub = PriceHubDef.ByKey(_sync.Settings.PriceHub);
-        PriceStatusText = $"PRICES · ESI MARKET · {hub.Label} · SYNCED {Formatting.Ago(snap.PriceSyncedAt).ToUpperInvariant()}";
-
-        // ---- location tree (respects char + search filters, not station selection) ----
-        var treeSource = charFiltered.Where(a => q.Length == 0
-            || $"{a.Name} {a.Group}".ToLowerInvariant().Contains(q)
-            || StationName(a.StationId).ToLowerInvariant().Contains(q)).ToList();
+        // location tree (respects char + search filters, not station selection)
+        var treeSource = q.Length == 0 ? charFiltered : charFiltered.Where(a => a.Search.Contains(q)).ToList();
         Tree = treeSource
             .GroupBy(a => StationRegion(a.StationId))
             .Select(g => (name: g.Key, value: g.Sum(Val), stations: g.GroupBy(a => a.StationId).ToList()))
@@ -371,33 +474,38 @@ public sealed partial class MainViewModel : ObservableObject
             .Select(g => new TreeRegionVm(g.name.ToUpperInvariant(), Formatting.Isk(g.value),
                 g.stations.Select(sg => new TreeStationVm(sg.Key, StationName(sg.Key), sg.Count().ToString(),
                     _selStation == sg.Key,
-                    new RelayCommand(() => { _selStation = _selStation == sg.Key ? null : sg.Key; Recompute(); }))).ToList()))
+                    new RelayCommand(() => { _selStation = _selStation == sg.Key ? null : sg.Key; Invalidate("assets"); }))).ToList()))
             .ToList();
 
-        // ---- character chips ----
+        // character chips
+        var charVals = snap.Assets.GroupBy(a => a.CharId).ToDictionary(g => g.Key, g => g.Sum(Val));
         var chips = new List<ChipVm>
         {
-            new("All characters", Formatting.Isk(snap.Assets.Sum(Val)), B("#6b7887"), _selChars.Count == 0,
-                new RelayCommand(() => { _selChars.Clear(); Recompute(); })),
+            new("All characters", Formatting.Isk(charVals.Values.Sum()), B("#6b7887"), _selChars.Count == 0,
+                new RelayCommand(() => { _selChars.Clear(); Invalidate("assets"); })),
         };
         chips.AddRange(snap.Characters.Select(c => new ChipVm(
-            c.Name, Formatting.Isk(snap.Assets.Where(a => a.CharId == c.Id).Sum(Val)), B(c.Color), _selChars.Contains(c.Id),
+            c.Name, Formatting.Isk(charVals.GetValueOrDefault(c.Id)), B(c.Color), _selChars.Contains(c.Id),
             new RelayCommand(() =>
             {
                 if (!_selChars.Remove(c.Id)) _selChars.Add(c.Id);
-                Recompute();
+                Invalidate("assets");
             }))));
         CharChips = chips;
 
-        // ---- selects with dynamic contents ----
         SyncOptions(DistFromOptions,
             new[] { new OptionVm("Closest character", 0L) }.Concat(snap.Characters.Select(c => new OptionVm(c.Name, c.Id))).ToList(),
             ref _distFromIndex, nameof(DistFromIndex));
         SyncOptions(RegionOptions,
             new[] { new OptionVm("All", "All") }.Concat(snap.Stations.Values.Select(s => s.RegionName).Distinct().OrderBy(r => r).Select(r => new OptionVm(r, r))).ToList(),
             ref _regionIndex, nameof(RegionIndex));
+    }
 
-        // ---- dashboard ----
+    private void ComputeDashboard()
+    {
+        var snap = _snap;
+        var charById = snap.Characters.ToDictionary(c => c.Id);
+
         CharCards = snap.Characters.Select(c =>
         {
             var mine = snap.Assets.Where(a => a.CharId == c.Id).ToList();
@@ -415,8 +523,13 @@ public sealed partial class MainViewModel : ObservableObject
         TopRows = snap.Assets.OrderByDescending(Val).Take(8).Select((a, i) => new TopRowVm(
             (i + 1).ToString("00"), a.Name, charById[a.CharId].Name, B(charById[a.CharId].Color),
             StationName(a.StationId), Formatting.Isk(Val(a)))).ToList();
+    }
 
-        // ---- wallet ----
+    private void ComputeWallet()
+    {
+        var snap = _snap;
+        var charById = snap.Characters.ToDictionary(c => c.Id);
+
         var walletTotal = snap.Characters.Sum(c => c.WalletBalance);
         WalletTotalText = Formatting.Isk(walletTotal);
         GrandTotalText = Formatting.Isk(walletTotal + snap.Assets.Sum(Val));
@@ -426,10 +539,10 @@ public sealed partial class MainViewModel : ObservableObject
 
         var wchips = new List<ChipVm>
         {
-            new("All characters", "", B("#6b7887"), _walletChar == null, new RelayCommand(() => { _walletChar = null; Recompute(); })),
+            new("All characters", "", B("#6b7887"), _walletChar == null, new RelayCommand(() => { _walletChar = null; Invalidate("wallet"); })),
         };
         wchips.AddRange(snap.Characters.Select(c => new ChipVm(c.Name, "", B(c.Color), _walletChar == c.Id,
-            new RelayCommand(() => { _walletChar = c.Id; Recompute(); }))));
+            new RelayCommand(() => { _walletChar = c.Id; Invalidate("wallet"); }))));
         WalletChips = wchips;
 
         var cutoff = DateTimeOffset.UtcNow.AddDays(-30);
@@ -444,7 +557,6 @@ public sealed partial class MainViewModel : ObservableObject
             "market_escrow" => "ESCROW RELEASED",
             "insurance" => "INSURANCE",
             "player_donation" or "corporation_account_withdrawal" => "TRANSFERS",
-            "market_transaction" => "MARKET SELLS", // split below by sign
             _ => j.RefType.Replace('_', ' ').ToUpperInvariant(),
         };
         string FlowKey(JournalEntry j) => j.RefType == "market_transaction" ? (j.Amount >= 0 ? "MARKET SELLS" : "MARKET BUYS") : TypeLabel(j);
@@ -483,10 +595,14 @@ public sealed partial class MainViewModel : ObservableObject
             j.StationId is { } sid2 ? StationName(sid2) : "— in space",
             j.RefType, Formatting.Signed(j.Amount), j.Amount >= 0 ? B("#8bd450") : B("#c0533f"))).ToList();
         JournalScopeText = _walletChar is { } wc && charById.TryGetValue(wc, out var wcc) ? wcc.Name.ToUpperInvariant() : "ALL CHARACTERS";
+    }
 
-        // ---- locations ----
+    private void ComputeLocations()
+    {
+        var snap = _snap;
         var stationVals = snap.Assets.GroupBy(a => a.StationId).ToDictionary(g => g.Key, g => g.Sum(Val));
         var charVals = snap.Assets.GroupBy(a => a.CharId).ToDictionary(g => g.Key, g => g.Sum(Val));
+
         LocCards = snap.Characters.Select(c =>
         {
             var nearest = snap.Stations.Values
@@ -509,17 +625,16 @@ public sealed partial class MainViewModel : ObservableObject
                 c.RegionName ?? "—", c.ShipName ?? "—",
                 Formatting.Isk(charVals.GetValueOrDefault(c.Id)) + " ISK", nearest);
         }).ToList();
+    }
 
-        // ---- auth ----
-        AuthRows = snap.Characters.Select(c => new AuthRowVm(
+    private void ComputeAuth()
+    {
+        AuthRows = _snap.Characters.Select(c => new AuthRowVm(
             c.Name, B(c.Color),
             $"{c.ScopesGranted.Count}/{EsiScopes.Required.Length} GRANTED",
             Formatting.In(c.TokenExpiresAt), Formatting.Ago(c.LastSyncAt),
             new AsyncRelayCommand(() => _sync.SyncOne(c.Id)),
             new RelayCommand(() => _sync.Unlink(c.Id)))).ToList();
-
-        // ---- settings ----
-        CacheSizeText = $"Local cache · {snap.CacheSizeBytes / 1024.0 / 1024.0:0.0} MB";
     }
 
     private void SyncOptions(ObservableCollection<OptionVm> target, List<OptionVm> fresh, ref int index, string indexProp)

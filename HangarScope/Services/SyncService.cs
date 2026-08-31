@@ -62,6 +62,7 @@ public sealed class SyncService : IDisposable
 
     public SyncService()
     {
+        var swCtor = System.Diagnostics.Stopwatch.StartNew();
         _universe = new UniverseService(_esi, _store);
         _settings = _store.Load<AppSettings>("settings.json");
         _auth = _store.Load<List<AuthRecord>>("characters.json");
@@ -73,6 +74,12 @@ public sealed class SyncService : IDisposable
         foreach (var a in _auth)
             _assetCache[a.CharacterId] = _store.Load<List<RawStack>>($"cache/assets-{a.CharacterId}.json").ToArray();
         UpdateSchedules();
+        try
+        {
+            File.AppendAllText(System.IO.Path.Combine(_store.Root, "perf.log"),
+                $"{DateTime.Now:HH:mm:ss.fff} ctorload {swCtor.ElapsedMilliseconds}ms{Environment.NewLine}");
+        }
+        catch { /* diagnostics only */ }
     }
 
     public AppSettings Settings => _settings;
@@ -481,14 +488,46 @@ public sealed class SyncService : IDisposable
     public Snapshot BuildSnapshot()
     {
         if (_auth.Count == 0 || DemoMode) return DemoData.Build();
+        var swSnap = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            return BuildSnapshotCore();
+        }
+        finally
+        {
+            try
+            {
+                File.AppendAllText(System.IO.Path.Combine(_store.Root, "perf.log"),
+                    $"{DateTime.Now:HH:mm:ss.fff} snapshot {swSnap.ElapsedMilliseconds}ms{Environment.NewLine}");
+            }
+            catch { /* diagnostics only */ }
+        }
+    }
 
-        var snap = new Snapshot { Demo = false, PriceSyncedAt = _priceSyncedAt, CacheSizeBytes = _store.CacheSizeBytes() };
+    private long _cachedDirSize = -1;
+    private DateTimeOffset _cachedDirSizeAt;
+
+    private Snapshot BuildSnapshotCore()
+    {
+        if (_cachedDirSize < 0 || DateTimeOffset.UtcNow - _cachedDirSizeAt > TimeSpan.FromSeconds(60))
+        {
+            _cachedDirSize = _store.CacheSizeBytes();
+            _cachedDirSizeAt = DateTimeOffset.UtcNow;
+        }
+
+        // one pass over the accumulated journal for all per-character 30-day deltas
+        var last30Cutoff = DateTimeOffset.UtcNow.AddDays(-30);
+        var deltas = new Dictionary<long, double>();
+        foreach (var j in _journal.Values)
+            if (j.Ts >= last30Cutoff)
+                deltas[j.CharId] = deltas.GetValueOrDefault(j.CharId) + j.Amount;
+
+        var snap = new Snapshot { Demo = false, PriceSyncedAt = _priceSyncedAt, CacheSizeBytes = _cachedDirSize };
 
         for (var i = 0; i < _auth.Count; i++)
         {
             var a = _auth[i];
             var st = _charState.GetValueOrDefault(a.CharacterId);
-            var last30 = DateTimeOffset.UtcNow.AddDays(-30);
             snap.Characters.Add(new CharacterInfo
             {
                 Id = a.CharacterId,
@@ -505,7 +544,7 @@ public sealed class SyncService : IDisposable
                 TokenExpiresAt = a.AccessTokenExpiresAt,
                 LastSyncAt = a.LastSyncAt,
                 WalletBalance = st?.Wallet ?? 0,
-                WalletDelta30d = _journal.Values.Where(j => j.CharId == a.CharacterId && j.Ts >= last30).Sum(j => j.Amount),
+                WalletDelta30d = deltas.GetValueOrDefault(a.CharacterId),
             });
         }
 
@@ -515,11 +554,15 @@ public sealed class SyncService : IDisposable
             {
                 var te = _universe.Cache.Types.GetValueOrDefault(r.TypeId);
                 var pe = _prices.GetValueOrDefault(r.TypeId);
+                if (!snap.Stations.TryGetValue(r.StationId, out var stInfo))
+                    snap.Stations[r.StationId] = stInfo = BuildStation(r.StationId);
+                var name = te?.Name ?? $"Type {r.TypeId}";
+                var group = te?.Group ?? "";
                 snap.Assets.Add(new AssetStack
                 {
                     TypeId = r.TypeId,
-                    Name = te?.Name ?? $"Type {r.TypeId}",
-                    Group = te?.Group ?? "",
+                    Name = name,
+                    Group = group,
                     Category = te?.Category ?? "",
                     Qty = r.Qty,
                     CharId = charId,
@@ -527,9 +570,8 @@ public sealed class SyncService : IDisposable
                     Flag = r.Flag,
                     Sell = pe?.Sell ?? 0,
                     Buy = pe?.Buy ?? 0,
+                    Search = $"{name} {group} {stInfo.Name}".ToLowerInvariant(),
                 });
-                if (!snap.Stations.ContainsKey(r.StationId))
-                    snap.Stations[r.StationId] = BuildStation(r.StationId);
             }
         }
 

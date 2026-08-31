@@ -28,7 +28,12 @@ public static class DemoData
 
         var assets = new List<AssetStack>();
         void A(string name, string group, string cat, long qty, long ch, long st, OwnershipFlag flag, double sell, double buy) =>
-            assets.Add(new AssetStack { TypeId = assets.Count + 1, Name = name, Group = group, Category = cat, Qty = qty, CharId = ch, StationId = st, Flag = flag, Sell = sell, Buy = buy });
+            assets.Add(new AssetStack
+            {
+                TypeId = assets.Count + 1, Name = name, Group = group, Category = cat, Qty = qty, CharId = ch,
+                StationId = st, Flag = flag, Sell = sell, Buy = buy,
+                Search = $"{name} {group} {stations[st].Name}".ToLowerInvariant(),
+            });
 
         A("Raven Navy Issue", "Battleship", "Ships", 1, K, 1, OwnershipFlag.Hangar, 620e6, 585e6);
         A("Rorqual", "Capital Industrial", "Ships", 1, R, 5, OwnershipFlag.Hangar, 2.6e9, 2.35e9);

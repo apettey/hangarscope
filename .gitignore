@@ -4,3 +4,4 @@ obj/
 .vs/
 *.log
 .DS_Store
+publish/
