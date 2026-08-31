@@ -14,7 +14,8 @@
           </StackPanel>
 
           <StackPanel>
-            <TextBlock Text="CHARACTERS" Classes="label" Margin="0,0,0,6"/>
+            <TextBlock Text="{Binding CharHeaderText}" Classes="label" Margin="0,0,0,6"/>
+            <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding CharChips}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate><StackPanel Spacing="4"/></ItemsPanelTemplate>
@@ -22,7 +23,7 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <Button Classes="flat chip" Command="{Binding Go}">
-                    <Border BorderThickness="1" Padding="9,6"
+                    <Border BorderThickness="1" Padding="9,5"
                             BorderBrush="{Binding Selected, Converter={x:Static v:Conv.ChipBorder}}"
                             Background="{Binding Selected, Converter={x:Static v:Conv.ChipBg}}">
                       <DockPanel>
@@ -38,6 +39,7 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+            </ScrollViewer>
           </StackPanel>
 
           <StackPanel>

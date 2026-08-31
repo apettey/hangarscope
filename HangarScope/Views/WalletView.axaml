@@ -3,12 +3,12 @@
              xmlns:v="using:HangarScope.Views"
              xmlns:c="using:HangarScope.Controls"
              x:Class="HangarScope.Views.WalletView">
-  <ScrollViewer>
-    <StackPanel Margin="28,24" Spacing="14" MaxWidth="1280" HorizontalAlignment="Left">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="28,24" Spacing="14">
 
-      <!-- cards row -->
-      <Grid ColumnDefinitions="*,14,*,14,*,14,*">
-        <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16">
+      <!-- cards: total pinned left, per-character cards wrap beside it -->
+      <Grid ColumnDefinitions="340,20,*">
+        <Border Grid.Column="0" VerticalAlignment="Top" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16">
           <StackPanel>
             <TextBlock Text="TOTAL LIQUID ISK" Classes="label"/>
             <TextBlock Text="{Binding WalletTotalText}" FontFamily="{StaticResource Mono}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Accent}" Margin="0,8,0,0"/>
@@ -18,19 +18,19 @@
             </StackPanel>
           </StackPanel>
         </Border>
-        <ItemsControl Grid.Column="2" Grid.ColumnSpan="5" ItemsSource="{Binding WalletCards}">
+        <ItemsControl Grid.Column="2" ItemsSource="{Binding WalletCards}">
           <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16" Margin="0,0,14,0">
+              <Border Width="300" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="16,12" Margin="0,0,14,14">
                 <StackPanel>
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <Border Width="8" Height="8" Background="{Binding Color}" BorderBrush="{Binding Color}" BorderThickness="1" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding Name}" FontSize="14" LetterSpacing="1.5" Foreground="{StaticResource Bright}"/>
                   </StackPanel>
-                  <TextBlock Text="{Binding BalanceText}" FontFamily="{StaticResource Mono}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource ValueText}" Margin="0,10,0,0"/>
+                  <TextBlock Text="{Binding BalanceText}" FontFamily="{StaticResource Mono}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource ValueText}" Margin="0,8,0,0"/>
                   <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                     <TextBlock Text="{Binding DeltaText}" FontFamily="{StaticResource Mono}" FontSize="12" LetterSpacing="1" Foreground="{Binding DeltaBrush}"/>
                     <TextBlock Text=" · 30 D" FontFamily="{StaticResource Mono}" FontSize="12" LetterSpacing="1" Foreground="{Binding DeltaBrush}"/>
@@ -42,16 +42,16 @@
         </ItemsControl>
       </Grid>
 
-      <!-- breakdown chips -->
-      <StackPanel Orientation="Horizontal" Spacing="10">
-        <TextBlock Text="BREAKDOWN" Classes="label" VerticalAlignment="Center"/>
+      <!-- breakdown chips (wrap: many characters means several rows) -->
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Left" Text="BREAKDOWN" Classes="label" Margin="0,8,10,0" VerticalAlignment="Top"/>
         <ItemsControl ItemsSource="{Binding WalletChips}">
           <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="10"/></ItemsPanelTemplate>
+            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <Button Classes="flat chip" Command="{Binding Go}">
+              <Button Classes="flat chip" Command="{Binding Go}" Margin="0,0,10,8">
                 <Border BorderThickness="1" Padding="12,5"
                         BorderBrush="{Binding Selected, Converter={x:Static v:Conv.ChipBorder}}"
                         Background="{Binding Selected, Converter={x:Static v:Conv.ChipBg}}">
@@ -64,7 +64,7 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-      </StackPanel>
+      </DockPanel>
 
       <!-- flow by type + flow by station -->
       <Grid ColumnDefinitions="1*,14,1.4*">

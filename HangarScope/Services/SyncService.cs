@@ -288,6 +288,14 @@ public sealed class SyncService : IDisposable
                     Desc = desc, RefType = refType, Amount = amount, StationId = stationId,
                 };
             }
+            // resolve station names referenced only by journal entries (e.g. market hubs the
+            // character has no assets in) so the wallet screens never show raw location ids
+            foreach (var sid in _journal.Values.Where(j => j.StationId is > 0).Select(j => j.StationId!.Value).Distinct())
+            {
+                if (_universe.Cache.Stations.ContainsKey(sid)) continue;
+                var st = await _universe.ResolveLocation(sid, token, _settings.CitadelPolicy, ct);
+                if (st != null) await _universe.ResolveSystem(st.SystemId, ct);
+            }
             _store.Save("cache/journal.json", _journal);
         }
         catch (Exception ex) { Status($"Journal sync failed: {ex.Message}"); }
@@ -373,7 +381,7 @@ public sealed class SyncService : IDisposable
             if (stId != null)
             {
                 var st = await _universe.ResolveLocation(stId.Value, token, _settings.CitadelPolicy, ct);
-                state.StationName = st?.Name?.ToUpperInvariant();
+                state.StationName = st?.Name?.Replace(" - ", " · ").ToUpperInvariant();
             }
             else state.StationName = null;
 
@@ -598,7 +606,8 @@ public sealed class SyncService : IDisposable
         {
             var st = _universe.Cache.Stations.GetValueOrDefault(stationId);
             sysId = st?.SystemId ?? 0;
-            name = st?.Name ?? $"Location {stationId}";
+            // design style: middots instead of EVE's verbose " - " chains
+            name = st?.Name.Replace(" - ", " · ") ?? $"Location {stationId}";
         }
         var info = new StationInfo
         {

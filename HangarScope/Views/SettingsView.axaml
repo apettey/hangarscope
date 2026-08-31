@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:v="using:HangarScope.Views"
              x:Class="HangarScope.Views.SettingsView">
-  <ScrollViewer>
-    <StackPanel Margin="28,24" Spacing="14" MaxWidth="980" HorizontalAlignment="Left">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="28,24" Spacing="14" MaxWidth="980" HorizontalAlignment="Left" >
 
       <!-- ESI application -->
       <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="18">

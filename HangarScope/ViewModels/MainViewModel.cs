@@ -56,6 +56,9 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _sync = sync;
         _priceSide = sync.Settings.DefaultPriceSide == "buy" ? "buy" : "sell";
+        // --screen=dash|wallet|loc|auth|settings opens on that tab (used by doc screenshot automation)
+        var screenArg = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--screen="));
+        if (screenArg != null) _screen = screenArg["--screen=".Length..];
         _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _searchDebounce.Tick += (_, _) => { _searchDebounce.Stop(); Invalidate("assets"); };
         // coalesce sync broadcast storms (one per character during SyncAll) into one recompute
@@ -120,6 +123,7 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [ObservableProperty] private List<ChipVm> _charChips = new();
+    [ObservableProperty] private string _charHeaderText = "CHARACTERS";
     [ObservableProperty] private List<TreeRegionVm> _tree = new();
     [ObservableProperty] private List<AssetRowVm> _rows = new();
     [ObservableProperty] private string _rowCountText = "";
@@ -477,14 +481,15 @@ public sealed partial class MainViewModel : ObservableObject
                     new RelayCommand(() => { _selStation = _selStation == sg.Key ? null : sg.Key; Invalidate("assets"); }))).ToList()))
             .ToList();
 
-        // character chips
+        // character chips — sorted by asset value so the biggest wallets surface first at scale
         var charVals = snap.Assets.GroupBy(a => a.CharId).ToDictionary(g => g.Key, g => g.Sum(Val));
+        CharHeaderText = $"CHARACTERS · {snap.Characters.Count}";
         var chips = new List<ChipVm>
         {
             new("All characters", Formatting.Isk(charVals.Values.Sum()), B("#6b7887"), _selChars.Count == 0,
                 new RelayCommand(() => { _selChars.Clear(); Invalidate("assets"); })),
         };
-        chips.AddRange(snap.Characters.Select(c => new ChipVm(
+        chips.AddRange(snap.Characters.OrderByDescending(c => charVals.GetValueOrDefault(c.Id)).Select(c => new ChipVm(
             c.Name, Formatting.Isk(charVals.GetValueOrDefault(c.Id)), B(c.Color), _selChars.Contains(c.Id),
             new RelayCommand(() =>
             {
@@ -506,21 +511,29 @@ public sealed partial class MainViewModel : ObservableObject
         var snap = _snap;
         var charById = snap.Characters.ToDictionary(c => c.Id);
 
-        CharCards = snap.Characters.Select(c =>
-        {
-            var mine = snap.Assets.Where(a => a.CharId == c.Id).ToList();
-            var top = mine.OrderByDescending(Val).FirstOrDefault();
-            return new CharCardVm(c.Name.ToUpperInvariant(), B(c.Color), Formatting.Isk(mine.Sum(Val)),
-                $"{mine.Count} STACKS · TOP: {(top != null ? top.Name.ToUpperInvariant() : "—")}");
-        }).ToList();
+        var byChar = snap.Assets.GroupBy(a => a.CharId).ToDictionary(g => g.Key, g => g.ToList());
+        CharCards = snap.Characters
+            .OrderByDescending(c => byChar.TryGetValue(c.Id, out var m) ? m.Sum(Val) : 0)
+            .Select(c =>
+            {
+                var mine = byChar.GetValueOrDefault(c.Id) ?? new List<AssetStack>();
+                var top = mine.OrderByDescending(Val).FirstOrDefault();
+                return new CharCardVm(c.Name.ToUpperInvariant(), B(c.Color), Formatting.Isk(mine.Sum(Val)),
+                    $"{mine.Count} STACKS · TOP: {(top != null ? top.Name.ToUpperInvariant() : "—")}");
+            }).ToList();
 
         var regAll = snap.Assets.GroupBy(a => StationRegion(a.StationId))
             .Select(g => (name: g.Key, v: g.Sum(Val))).OrderByDescending(x => x.v).ToList();
         var maxReg = regAll.Count > 0 ? regAll.Max(x => x.v) : 1;
-        RegionBars = regAll.Select(x => new BarVm(x.name.ToUpperInvariant(), Formatting.Isk(x.v), B("#cfd8e0"),
+        var regTop = regAll.Take(12).ToList();
+        var regRest = regAll.Skip(12).Sum(x => x.v);
+        RegionBars = regTop.Select(x => new BarVm(x.name.ToUpperInvariant(), Formatting.Isk(x.v), B("#cfd8e0"),
             maxReg > 0 ? x.v / maxReg : 0, B("#4fc3f7"))).ToList();
+        if (regRest > 0)
+            RegionBars.Add(new BarVm($"OTHERS · {regAll.Count - 12} REGIONS", Formatting.Isk(regRest), B("#cfd8e0"),
+                maxReg > 0 ? regRest / maxReg : 0, B("#3a4a5c")));
 
-        TopRows = snap.Assets.OrderByDescending(Val).Take(8).Select((a, i) => new TopRowVm(
+        TopRows = snap.Assets.OrderByDescending(Val).Take(10).Select((a, i) => new TopRowVm(
             (i + 1).ToString("00"), a.Name, charById[a.CharId].Name, B(charById[a.CharId].Color),
             StationName(a.StationId), Formatting.Isk(Val(a)))).ToList();
     }
@@ -533,7 +546,7 @@ public sealed partial class MainViewModel : ObservableObject
         var walletTotal = snap.Characters.Sum(c => c.WalletBalance);
         WalletTotalText = Formatting.Isk(walletTotal);
         GrandTotalText = Formatting.Isk(walletTotal + snap.Assets.Sum(Val));
-        WalletCards = snap.Characters.Select(c => new WalletCardVm(
+        WalletCards = snap.Characters.OrderByDescending(c => c.WalletBalance).Select(c => new WalletCardVm(
             c.Name.ToUpperInvariant(), B(c.Color), Formatting.Isk(c.WalletBalance),
             Formatting.Signed(c.WalletDelta30d), c.WalletDelta30d >= 0 ? B("#8bd450") : B("#c0533f"))).ToList();
 

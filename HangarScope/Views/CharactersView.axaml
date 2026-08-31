@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="HangarScope.Views.CharactersView">
-  <ScrollViewer>
-    <StackPanel Margin="28,24" Spacing="20" MaxWidth="980" HorizontalAlignment="Left">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="28,24" Spacing="20" MaxWidth="980" HorizontalAlignment="Left" >
 
       <!-- link panel -->
       <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="20">
