@@ -2,18 +2,22 @@
 
 A self-hosted Windows desktop application (jEveAssets-style) that aggregates assets across multiple EVE Online characters via ESI, tracks each character's live location, computes jump distances from characters to assets, values everything against Jita market prices, and provides a wallet overview.
 
-Built with **.NET 10 + Avalonia UI** (C#, XAML, MVVM). The UI is a faithful recreation of the high-fidelity design prototype in [`design/`](design/).
+Built with **.NET 10 + Avalonia UI** (C#, XAML, MVVM). The UI is a faithful recreation of the high-fidelity design prototype in [`design/`](design/), extended to scale to accounts with many characters.
+
+![Assets browser](docs/screenshots/assets.png)
 
 ## Screens
 
-- **ASSETS** — filterable/sortable asset browser: search, multi-select character chips, distance-from selector, region/category/ownership/min-value filters, location tree, 8-column table with jump-distance coloring.
-- **DASHBOARD** — total net worth, per-character cards, value by region bars, top holdings.
+Full feature documentation with screenshots: **[docs/FEATURES.md](docs/FEATURES.md)**.
+
+- **ASSETS** — filterable/sortable asset browser: search, multi-select character chips (value-sorted, scrollable), distance-from selector, region/category/ownership/min-value filters, location tree, virtualized 8-column table with jump-distance coloring.
+- **DASHBOARD** — total net worth, per-character cards in a value-sorted wrap grid, value-by-region bars (top 12 + OTHERS), top 10 holdings.
 - **WALLET** — liquid ISK totals, per-character balances with 30-day delta, 30-day flow by ref-type and by station, accumulated journal (kept locally beyond ESI's 30-day window).
 - **LOCATIONS** — live per-character cards: system (security-colored), region, ship, docked status, nearest asset hubs by jumps.
 - **CHARACTERS** — EVE SSO (OAuth2 + PKCE) linking, token expiry, per-character sync/unlink.
 - **SETTINGS** — user-supplied ESI application credentials (stored DPAPI-encrypted, never leave the machine), price hub/side, sync cadences, citadel name policy, cache purge.
 
-Until a character is linked, the app shows the design's demo dataset so every screen is explorable.
+Until a character is linked, the app shows the design's demo dataset so every screen is explorable (`--demo` forces it).
 
 ## Getting started
 
@@ -46,7 +50,13 @@ HangarScope/
   Controls/      FractionBar (proportional value bars)
 ```
 
-Storage: everything lives in `%APPDATA%\HangarScope` — settings, encrypted credentials/refresh tokens (Windows DPAPI), and a `cache/` directory (assets, prices, routes, universe, accumulated journal) that PURGE CACHE clears.
+Storage: everything lives in `%APPDATA%\HangarScope` — settings, encrypted credentials/refresh tokens (Windows DPAPI), and a `cache/` directory (assets, prices, routes, universe, accumulated journal) that PURGE CACHE clears. Sync events log to `sync.log`, UI timings to `perf.log`.
+
+Performance: the asset table is virtualized and the view model recomputes per-screen sections lazily (search debounced, sync broadcasts coalesced, sort clicks reorder without re-filtering) — the UI stays responsive with tens of thousands of asset items. For fastest startup, publish with ReadyToRun:
+
+```bash
+dotnet publish HangarScope -c Release -r win-x64 --self-contained false -o publish
+```
 
 ## Fonts
 

@@ -51,14 +51,14 @@
         </StackPanel>
 
         <!-- nav tabs -->
-        <ItemsControl DockPanel.Dock="Left" ItemsSource="{Binding Tabs}" Margin="32,0,0,0" VerticalAlignment="Stretch">
+        <ItemsControl DockPanel.Dock="Left" ItemsSource="{Binding Tabs}" Margin="20,0,0,0" VerticalAlignment="Stretch">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="2"/></ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate>
               <Button Classes="flat tab" Command="{Binding Go}" VerticalAlignment="Stretch">
-                <Border BorderThickness="0,0,0,2" Padding="16,0" VerticalAlignment="Stretch"
+                <Border BorderThickness="0,0,0,2" Padding="11,0" VerticalAlignment="Stretch"
                         BorderBrush="{Binding Active, Converter={x:Static v:Conv.TabBorder}}">
                   <TextBlock Text="{Binding Label}" FontSize="13" LetterSpacing="2" VerticalAlignment="Center"
                              Foreground="{Binding Active, Converter={x:Static v:Conv.TabText}}"/>
@@ -100,8 +100,8 @@
           </Border>
         </StackPanel>
         <TextBlock DockPanel.Dock="Right" Text="{Binding SyncStatusText}" FontSize="11" LetterSpacing="1"
-                   Foreground="{StaticResource Dim}" VerticalAlignment="Center" Margin="0,0,20,0"
-                   TextTrimming="CharacterEllipsis" MaxWidth="340"/>
+                   Foreground="{StaticResource Dim}" VerticalAlignment="Center" Margin="0,0,16,0"
+                   TextTrimming="CharacterEllipsis" MaxWidth="260"/>
         <Border/>
       </DockPanel>
     </Border>
