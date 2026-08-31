@@ -78,6 +78,9 @@ public sealed class SyncService : IDisposable
     public AppSettings Settings => _settings;
     public bool HasLinkedCharacters => _auth.Count > 0;
 
+    /// <summary>--demo forces the prototype dataset (used for documentation screenshots).</summary>
+    private static readonly bool DemoMode = Environment.GetCommandLineArgs().Contains("--demo");
+
     // ---------- settings & credentials ----------
 
     public void SaveSettings(Action<AppSettings> mutate)
@@ -477,7 +480,7 @@ public sealed class SyncService : IDisposable
 
     public Snapshot BuildSnapshot()
     {
-        if (_auth.Count == 0) return DemoData.Build();
+        if (_auth.Count == 0 || DemoMode) return DemoData.Build();
 
         var snap = new Snapshot { Demo = false, PriceSyncedAt = _priceSyncedAt, CacheSizeBytes = _store.CacheSizeBytes() };
 
@@ -596,7 +599,7 @@ public sealed class SyncService : IDisposable
 
     private System.Timers.Timer? MakeTimer(TimeSpan interval, Action tick)
     {
-        if (interval <= TimeSpan.Zero || _auth.Count == 0) return null;
+        if (interval <= TimeSpan.Zero || _auth.Count == 0 || DemoMode) return null;
         var t = new System.Timers.Timer(interval.TotalMilliseconds) { AutoReset = true };
         t.Elapsed += (_, _) => tick();
         t.Start();
@@ -608,7 +611,7 @@ public sealed class SyncService : IDisposable
     public void Start()
     {
         Broadcast();
-        if (_auth.Count > 0) _ = SyncAll();
+        if (_auth.Count > 0 && !DemoMode) _ = SyncAll();
     }
 
     public void Dispose()

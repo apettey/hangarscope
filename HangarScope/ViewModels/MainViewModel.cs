@@ -485,10 +485,12 @@ public sealed partial class MainViewModel : ObservableObject
         JournalScopeText = _walletChar is { } wc && charById.TryGetValue(wc, out var wcc) ? wcc.Name.ToUpperInvariant() : "ALL CHARACTERS";
 
         // ---- locations ----
+        var stationVals = snap.Assets.GroupBy(a => a.StationId).ToDictionary(g => g.Key, g => g.Sum(Val));
+        var charVals = snap.Assets.GroupBy(a => a.CharId).ToDictionary(g => g.Key, g => g.Sum(Val));
         LocCards = snap.Characters.Select(c =>
         {
             var nearest = snap.Stations.Values
-                .Select(st => (st, v: snap.Assets.Where(a => a.StationId == st.Id).Sum(Val), j: st.Jumps.GetValueOrDefault(c.Id, -1)))
+                .Select(st => (st, v: stationVals.GetValueOrDefault(st.Id), j: st.Jumps.GetValueOrDefault(c.Id, -1)))
                 .Where(x => x.v > 0)
                 .OrderBy(x => x.j < 0 ? int.MaxValue : x.j)
                 .Take(4)
@@ -505,7 +507,7 @@ public sealed partial class MainViewModel : ObservableObject
                 c.SystemName ?? "—", sec.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
                 sec >= 0.5 ? B("#8bd450") : sec > 0 ? B("#ffb300") : B("#c0533f"),
                 c.RegionName ?? "—", c.ShipName ?? "—",
-                Formatting.Isk(snap.Assets.Where(a => a.CharId == c.Id).Sum(Val)) + " ISK", nearest);
+                Formatting.Isk(charVals.GetValueOrDefault(c.Id)) + " ISK", nearest);
         }).ToList();
 
         // ---- auth ----

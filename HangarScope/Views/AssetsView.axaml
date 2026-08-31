@@ -131,10 +131,12 @@
         </Grid>
       </Border>
 
-      <!-- rows -->
-      <ScrollViewer Grid.Row="1">
-        <ItemsControl ItemsSource="{Binding Rows}">
-          <ItemsControl.ItemTemplate>
+      <!-- rows (virtualized: real characters can have thousands of stacks) -->
+      <ListBox Grid.Row="1" ItemsSource="{Binding Rows}" Background="Transparent" Padding="0" SelectionMode="Single">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
             <DataTemplate>
               <Border Classes="assetrow" Height="40" BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Background="Transparent">
                 <Grid Margin="20,0" ColumnDefinitions="2.4*,0.7*,1*,1*,1.8*,0.7*,1*,1.1*">
@@ -160,9 +162,8 @@
                 </Grid>
               </Border>
             </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
+          </ListBox.ItemTemplate>
+      </ListBox>
 
       <!-- footer -->
       <Border Grid.Row="2" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="0,1,0,0">
@@ -182,6 +183,19 @@
   <UserControl.Styles>
     <Style Selector="Border.assetrow:pointerover">
       <Setter Property="Background" Value="{StaticResource HoverRow}"/>
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="CornerRadius" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource HoverRow}"/>
+    </Style>
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource HoverChip}"/>
     </Style>
     <Style Selector="Button.chip:pointerover Border">
       <Setter Property="BorderBrush" Value="{StaticResource BorderSel}"/>
