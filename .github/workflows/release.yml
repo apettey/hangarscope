@@ -17,3 +17,4 @@ jobs:
     with:
       project: HangarScope/HangarScope.csproj
       app-name: HangarScope
+      main-exe: HangarScope.exe
