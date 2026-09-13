@@ -25,6 +25,6 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.*" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.*" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.*" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.*" />
   </ItemGroup>
 </Project>
