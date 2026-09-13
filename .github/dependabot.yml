@@ -20,3 +20,22 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # Keep the versions of actions used in .github/workflows current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+    groups:
+      actions-all:
+        update-types:
+          - "minor"
+          - "patch"
