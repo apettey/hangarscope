@@ -1,0 +1,22 @@
+# Dependabot keeps dependencies up to date by opening PRs automatically.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/HangarScope"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+    groups:
+      # Batch minor + patch bumps into a single PR to cut review noise.
+      nuget-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
