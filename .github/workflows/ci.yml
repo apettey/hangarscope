@@ -1,0 +1,38 @@
+# Builds (and tests, if any test projects exist) every pull request, so Dependabot's
+# dependency-bump PRs are verified before merge. Pushes to master are covered by
+# release.yml (which compiles + packs), so CI does not duplicate that here.
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build
+        run: dotnet build HangarScope/HangarScope.csproj -c Release --nologo
+
+      # No test project exists yet; run tests only if one is added later.
+      # Convention: test projects are named *.Test.csproj / *.Tests.csproj.
+      - name: Test
+        shell: bash
+        run: |
+          mapfile -t tests < <(git ls-files '*.[Tt]est.csproj' '*.[Tt]ests.csproj')
+          if [ ${#tests[@]} -eq 0 ]; then
+            echo "No test projects found — skipping."
+            exit 0
+          fi
+          for t in "${tests[@]}"; do
+            echo "Testing $t"
+            dotnet test "$t" -c Release --nologo
+          done
