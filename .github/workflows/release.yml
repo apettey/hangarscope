@@ -1,11 +1,13 @@
 # Builds HangarScope for Windows via the shared reusable workflow in apettey/eve-contracts.
-# - every branch push / manual run: zip in the run's Artifacts
+# - push to master / manual run: zip in the run's Artifacts
 # - v* tag: zip attached to a GitHub Release
+# Feature and dependabot branches are verified by ci.yml (pull_request) instead, so they
+# don't each trigger a full Velopack pack here.
 name: Release
 
 on:
   push:
-    branches: ["**"]
+    branches: ["master"]
     tags: ["v*"]
   workflow_dispatch:
 
