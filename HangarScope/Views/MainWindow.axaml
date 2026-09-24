@@ -5,7 +5,7 @@
         Title="HANGARSCOPE — NEW EDEN ASSET LEDGER"
         Width="1500" Height="940"
         MinWidth="1100" MinHeight="640"
-        SystemDecorations="None"
+        WindowDecorations="None"
         Background="{StaticResource Bg}"
         FontFamily="{StaticResource Ui}">
   <DockPanel>
