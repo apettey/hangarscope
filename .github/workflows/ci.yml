@@ -22,7 +22,7 @@ jobs:
       - name: Build
         run: dotnet build HangarScope/HangarScope.csproj -c Release --nologo
 
-      # No test project exists yet; run tests only if one is added later.
+      # Runs every test project (today: HangarScope.Tests, the REFIT planner and EFT format tests).
       # Convention: test projects are named *.Test.csproj / *.Tests.csproj.
       - name: Test
         shell: bash

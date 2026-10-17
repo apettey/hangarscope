@@ -109,6 +109,7 @@
     <!-- SCREENS -->
     <Panel>
       <v:AssetsView IsVisible="{Binding IsAssets}"/>
+      <v:RefitView IsVisible="{Binding IsRefit}"/>
       <v:DashboardView IsVisible="{Binding IsDash}"/>
       <v:WalletView IsVisible="{Binding IsWallet}"/>
       <v:LocationsView IsVisible="{Binding IsLoc}"/>

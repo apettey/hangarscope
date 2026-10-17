@@ -11,7 +11,7 @@ public sealed class EsiClient
 {
     public const string BaseUrl = "https://esi.evetech.net/latest";
     private readonly HttpClient _http;
-    private readonly Dictionary<string, (string etag, string body, int pages)> _etags = new();
+    private readonly Dictionary<string, (string etag, string body, int pages, DateTimeOffset? lastModified)> _etags = new();
     private readonly SemaphoreSlim _gate = new(8);
 
     public EsiClient()
@@ -29,6 +29,16 @@ public sealed class EsiClient
 
     public async Task<(string body, int pages)> GetRaw(string path, string? token = null, CancellationToken ct = default)
     {
+        var (body, pages, _) = await GetRawMeta(path, token, ct);
+        return (body, pages);
+    }
+
+    /// <summary>
+    /// GET with the response's Last-Modified: when ESI generated the (cached) body. A 304 keeps the
+    /// Last-Modified of the body it confirms. Falls back to the Date header when Last-Modified is absent.
+    /// </summary>
+    public async Task<(string body, int pages, DateTimeOffset? lastModified)> GetRawMeta(string path, string? token = null, CancellationToken ct = default)
+    {
         await _gate.WaitAsync(ct);
         try
         {
@@ -43,7 +53,7 @@ public sealed class EsiClient
                 using var res = await _http.SendAsync(req, ct);
 
                 if (res.StatusCode == HttpStatusCode.NotModified)
-                    return (cached.body, cached.pages);
+                    return (cached.body, cached.pages, cached.lastModified);
 
                 if ((int)res.StatusCode == 420 || (int)res.StatusCode == 429 || (int)res.StatusCode >= 500)
                 {
@@ -57,9 +67,10 @@ public sealed class EsiClient
                 res.EnsureSuccessStatusCode();
                 var body = await res.Content.ReadAsStringAsync(ct);
                 var pages = res.Headers.TryGetValues("X-Pages", out var pv) && int.TryParse(pv.FirstOrDefault(), out var p) ? p : 1;
+                var lastModified = res.Content.Headers.LastModified ?? res.Headers.Date;
                 if (res.Headers.ETag is { } etag)
-                    _etags[cacheKey] = (etag.Tag, body, pages);
-                return (body, pages);
+                    _etags[cacheKey] = (etag.Tag, body, pages, lastModified);
+                return (body, pages, lastModified);
             }
         }
         finally { _gate.Release(); }
@@ -84,7 +95,11 @@ public sealed class EsiClient
         return items;
     }
 
-    public async Task<JsonDocument> PostJson(string path, object payload, string? token = null, CancellationToken ct = default)
+    public async Task<JsonDocument> PostJson(string path, object payload, string? token = null, CancellationToken ct = default) =>
+        (await PostJsonDated(path, payload, token, ct)).doc;
+
+    /// <summary>POST, also returning ESI's clock (Date header) at the time of the write.</summary>
+    public async Task<(JsonDocument doc, DateTimeOffset serverTime)> PostJsonDated(string path, object payload, string? token = null, CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct);
         try
@@ -94,7 +109,22 @@ public sealed class EsiClient
             req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
             using var res = await _http.SendAsync(req, ct);
             res.EnsureSuccessStatusCode();
-            return JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+            return (JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct)), res.Headers.Date ?? DateTimeOffset.UtcNow);
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>DELETE; returns ESI's clock (Date header) at the time of the write.</summary>
+    public async Task<DateTimeOffset> Delete(string path, string token, CancellationToken ct = default)
+    {
+        await _gate.WaitAsync(ct);
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Delete, BaseUrl + path);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var res = await _http.SendAsync(req, ct);
+            res.EnsureSuccessStatusCode();
+            return res.Headers.Date ?? DateTimeOffset.UtcNow;
         }
         finally { _gate.Release(); }
     }

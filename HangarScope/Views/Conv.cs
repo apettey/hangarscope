@@ -53,4 +53,10 @@ public static class Conv
 
     public static readonly IValueConverter GreenDot =
         new FuncValueConverter<bool, IBrush>(on => on ? Brush("#8bd450") : Brush("#6b7887"));
+
+    public static readonly IValueConverter BoxBorder =
+        new FuncValueConverter<bool, IBrush>(on => on ? Brush("#4fc3f7") : Brush("#3a4a5c"));
+
+    public static readonly IValueConverter BoxFill =
+        new FuncValueConverter<bool, IBrush>(on => on ? Brush("#4fc3f7") : Brushes.Transparent);
 }

@@ -16,6 +16,15 @@ public sealed class SyncService : IDisposable
     private List<AuthRecord> _auth;
     private Dictionary<long, CharState> _charState;
     private Dictionary<long, RawStack[]> _assetCache = new();
+    private Dictionary<long, List<ShipInstance>> _shipCache = new();
+    private Dictionary<long, List<SavedFitting>> _fittingCache = new();
+    /// <summary>
+    /// ESI time of this session's last fitting write (save/delete) per character. ESI caches
+    /// /characters/{id}/fittings/ for ~5 minutes, so a list generated before the write is stale.
+    /// </summary>
+    private readonly Dictionary<long, DateTimeOffset> _fittingsWrittenAt = new();
+    /// <summary>Types the REFIT screen asked about (e.g. from a pasted EFT fit) that no asset references.</summary>
+    private readonly HashSet<long> _extraTypes = new();
     private Dictionary<long, PriceEntry> _prices;
     private Dictionary<string, int> _routes;
     private Dictionary<string, JournalEntry> _journal;
@@ -72,7 +81,11 @@ public sealed class SyncService : IDisposable
         _routes = _store.Load<Dictionary<string, int>>("cache/routes.json");
         _journal = _store.Load<Dictionary<string, JournalEntry>>("cache/journal.json");
         foreach (var a in _auth)
+        {
             _assetCache[a.CharacterId] = _store.Load<List<RawStack>>($"cache/assets-{a.CharacterId}.json").ToArray();
+            _shipCache[a.CharacterId] = _store.Load<List<ShipInstance>>($"cache/ships-{a.CharacterId}.json");
+            _fittingCache[a.CharacterId] = _store.Load<List<SavedFitting>>($"cache/fittings-{a.CharacterId}.json");
+        }
         UpdateSchedules();
         try
         {
@@ -159,9 +172,14 @@ public sealed class SyncService : IDisposable
     {
         _auth.RemoveAll(a => a.CharacterId == charId);
         _assetCache.Remove(charId);
+        _shipCache.Remove(charId);
+        _fittingCache.Remove(charId);
+        _fittingsWrittenAt.Remove(charId);
         _charState.Remove(charId);
         _store.Save("characters.json", _auth);
         _store.Delete($"cache/assets-{charId}.json");
+        _store.Delete($"cache/ships-{charId}.json");
+        _store.Delete($"cache/fittings-{charId}.json");
         _store.Save("cache/charstate.json", _charState);
         Broadcast();
     }
@@ -309,6 +327,7 @@ public sealed class SyncService : IDisposable
             var byItemId = items.ToDictionary(i => i.GetProperty("item_id").GetInt64());
             var stacks = new Dictionary<(long type, long station, OwnershipFlag flag), long>();
             var typeIds = new HashSet<long>();
+            var rootOf = new Dictionary<long, long>(items.Count);
 
             foreach (var item in items)
             {
@@ -335,6 +354,7 @@ public sealed class SyncService : IDisposable
                 if (rootType == "solar_system") stationId = -rootLoc; // synthetic "in space" station keyed by system
                 else stationId = rootLoc;
 
+                rootOf[item.GetProperty("item_id").GetInt64()] = stationId;
                 var key = (typeId, stationId, flag);
                 stacks[key] = stacks.GetValueOrDefault(key) + qty;
             }
@@ -348,6 +368,11 @@ public sealed class SyncService : IDisposable
             _assetCache[id] = raw;
             _store.Save($"cache/assets-{id}.json", raw.ToList());
 
+            var ships = await BuildShips(items, rootOf, id, token, ct);
+            await _universe.ResolveSlots(ships.Select(sh => sh.TypeId), ct);
+            _shipCache[id] = ships;
+            _store.Save($"cache/ships-{id}.json", ships);
+
             // resolve station names & systems
             foreach (var stId in raw.Select(r => r.StationId).Distinct())
             {
@@ -358,8 +383,187 @@ public sealed class SyncService : IDisposable
         }
         catch (Exception ex) { Status($"Asset sync failed for {rec.CharacterName}: {ex.Message}"); }
 
+        // saved in-game fittings (skipped until the character re-authenticates with the fittings scope)
+        if (rec.Scopes.Contains(EsiScopes.FittingsRead))
+            await SyncFittings(rec, token, ct);
+
         _store.Save("cache/charstate.json", _charState);
     }
+
+    private async Task SyncFittings(AuthRecord rec, string token, CancellationToken ct)
+    {
+        var id = rec.CharacterId;
+        try
+        {
+            var (body, _, generatedAt) = await _esi.GetRawMeta($"/characters/{id}/fittings/", token, ct);
+            if (IsStaleFittingsRead(id, generatedAt))
+            {
+                Status($"Fittings for {rec.CharacterName}: ESI is still serving its list from before your last change; keeping the local copy.");
+                return;
+            }
+            using var doc = JsonDocument.Parse(body);
+            var fits = doc.RootElement.EnumerateArray().Select(f => new SavedFitting
+            {
+                FittingId = f.GetProperty("fitting_id").GetInt64(),
+                CharId = id,
+                Name = f.GetProperty("name").GetString() ?? "",
+                Description = f.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "",
+                ShipTypeId = f.GetProperty("ship_type_id").GetInt64(),
+                Items = f.GetProperty("items").EnumerateArray().Select(i => new FitItem
+                {
+                    TypeId = i.GetProperty("type_id").GetInt64(),
+                    Flag = i.GetProperty("flag").ValueKind == JsonValueKind.String ? i.GetProperty("flag").GetString() ?? "" : i.GetProperty("flag").ToString(),
+                    Qty = i.GetProperty("quantity").GetInt64(),
+                }).ToList(),
+            }).ToList();
+            await _universe.ResolveTypes(fits.Select(f => f.ShipTypeId).Concat(fits.SelectMany(f => f.Items.Select(i => i.TypeId))), ct);
+            await _universe.ResolveSlots(fits.Select(f => f.ShipTypeId), ct);
+            _fittingCache[id] = fits;
+            _store.Save($"cache/fittings-{id}.json", fits);
+        }
+        catch (Exception ex) { Status($"Fittings sync failed for {rec.CharacterName}: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// Assembled ships and everything inside them. Unlike the station stacks above, this keeps
+    /// which module sits on which hull and in which slot.
+    /// </summary>
+    private async Task<List<ShipInstance>> BuildShips(List<JsonElement> items, Dictionary<long, long> rootOf, long charId, string token, CancellationToken ct)
+    {
+        var ships = new Dictionary<long, ShipInstance>();
+        foreach (var item in items)
+        {
+            if (!item.TryGetProperty("is_singleton", out var single) || !single.GetBoolean()) continue;
+            var typeId = item.GetProperty("type_id").GetInt64();
+            if (_universe.Cache.Types.GetValueOrDefault(typeId)?.Category != "Ships") continue;
+            var itemId = item.GetProperty("item_id").GetInt64();
+            ships[itemId] = new ShipInstance { ItemId = itemId, TypeId = typeId, CharId = charId, StationId = rootOf.GetValueOrDefault(itemId) };
+        }
+        foreach (var item in items)
+        {
+            if (!ships.TryGetValue(item.GetProperty("location_id").GetInt64(), out var ship)) continue;
+            var typeId = item.GetProperty("type_id").GetInt64();
+            var flag = item.GetProperty("location_flag").GetString() ?? "";
+            var qty = item.GetProperty("quantity").GetInt64();
+            var existing = ship.Items.FirstOrDefault(i => i.TypeId == typeId && i.Flag == flag);
+            if (existing != null) existing.Qty += qty;
+            else ship.Items.Add(new FitItem { TypeId = typeId, Flag = flag, Qty = qty });
+        }
+
+        // player-given ship names; ESI accepts up to 1000 ids per call
+        foreach (var chunk in ships.Keys.Chunk(1000))
+        {
+            try
+            {
+                using var doc = await _esi.PostJson($"/characters/{charId}/assets/names/", chunk, token, ct);
+                foreach (var n in doc.RootElement.EnumerateArray())
+                {
+                    var name = n.GetProperty("name").GetString();
+                    if (ships.TryGetValue(n.GetProperty("item_id").GetInt64(), out var s) && !string.IsNullOrWhiteSpace(name) && name != "None")
+                        s.Name = name;
+                }
+            }
+            catch (Exception ex) { Status($"Ship names unavailable: {ex.Message}"); }
+        }
+        return ships.Values.OrderBy(s => s.TypeId).ThenBy(s => s.ItemId).ToList();
+    }
+
+    /// <summary>
+    /// Saves a fitting to each character's in-game Fitting window. Only called from an explicit
+    /// user action; characters without the write scope are reported, not attempted.
+    /// </summary>
+    public async Task<List<(long charId, bool ok, string message)>> SaveFitting(IEnumerable<long> charIds, SavedFitting fit, CancellationToken ct = default)
+    {
+        var results = new List<(long, bool, string)>();
+        var name = fit.Name.Length > 50 ? fit.Name[..50] : fit.Name;
+        var description = string.IsNullOrWhiteSpace(fit.Description) ? "Saved by HangarScope" : fit.Description;
+        var payload = new
+        {
+            name,
+            description,
+            ship_type_id = fit.ShipTypeId,
+            items = fit.Items.Select(i => new { type_id = i.TypeId, flag = i.Flag, quantity = i.Qty }).ToList(),
+        };
+        foreach (var charId in charIds.Distinct())
+        {
+            var rec = _auth.FirstOrDefault(a => a.CharacterId == charId);
+            if (rec == null) { results.Add((charId, false, "Character not linked")); continue; }
+            if (!rec.Scopes.Contains(EsiScopes.FittingsWrite))
+            {
+                results.Add((charId, false, $"{rec.CharacterName}: re-authenticate to grant {EsiScopes.FittingsWrite}"));
+                continue;
+            }
+            var token = await Token(rec, ct);
+            if (token == null) { results.Add((charId, false, $"{rec.CharacterName}: token refresh failed")); continue; }
+            try
+            {
+                var (doc, wroteAt) = await _esi.PostJsonDated($"/characters/{charId}/fittings/", payload, token, ct);
+                using var _ = doc;
+                _fittingsWrittenAt[charId] = wroteAt;
+                var list = _fittingCache.TryGetValue(charId, out var l) ? l : _fittingCache[charId] = new List<SavedFitting>();
+                list.Add(new SavedFitting
+                {
+                    FittingId = doc.RootElement.GetProperty("fitting_id").GetInt64(),
+                    CharId = charId, Name = name, Description = description, ShipTypeId = fit.ShipTypeId,
+                    Items = fit.Items.Select(i => new FitItem { TypeId = i.TypeId, Flag = i.Flag, Qty = i.Qty }).ToList(),
+                });
+                _store.Save($"cache/fittings-{charId}.json", list);
+                Status($"Saved fitting '{name}' to {rec.CharacterName}");
+                results.Add((charId, true, $"{rec.CharacterName}: saved"));
+            }
+            catch (Exception ex)
+            {
+                Status($"Saving fitting to {rec.CharacterName} failed: {ex.Message}");
+                results.Add((charId, false, $"{rec.CharacterName}: {ex.Message}"));
+            }
+        }
+        Broadcast();
+        return results;
+    }
+
+    /// <summary>Deletes one saved in-game fitting. Only called from an explicit, confirmed user action.</summary>
+    public async Task<(bool ok, string message)> DeleteFitting(long charId, long fittingId, CancellationToken ct = default)
+    {
+        var rec = _auth.FirstOrDefault(a => a.CharacterId == charId);
+        if (rec == null) return (false, "Character not linked");
+        if (!rec.Scopes.Contains(EsiScopes.FittingsWrite))
+            return (false, $"{rec.CharacterName}: re-authenticate to grant {EsiScopes.FittingsWrite}");
+        var token = await Token(rec, ct);
+        if (token == null) return (false, $"{rec.CharacterName}: token refresh failed");
+        try
+        {
+            _fittingsWrittenAt[charId] = await _esi.Delete($"/characters/{charId}/fittings/{fittingId}/", token, ct);
+            if (_fittingCache.TryGetValue(charId, out var list))
+            {
+                list.RemoveAll(f => f.FittingId == fittingId);
+                _store.Save($"cache/fittings-{charId}.json", list);
+            }
+            Status($"Deleted fitting {fittingId} from {rec.CharacterName}");
+            Broadcast();
+            return (true, $"{rec.CharacterName}: deleted");
+        }
+        catch (Exception ex)
+        {
+            Status($"Deleting fitting from {rec.CharacterName} failed: {ex.Message}");
+            return (false, $"{rec.CharacterName}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// True when a fittings list ESI generated at <paramref name="generatedAt"/> predates this session's last
+    /// write for the character: overwriting the local cache with it would bring a deleted fit back and drop a
+    /// new one. After 15 minutes ESI's ~5 minute cache has certainly turned over, so the list is accepted.
+    /// </summary>
+    private bool IsStaleFittingsRead(long charId, DateTimeOffset? generatedAt)
+    {
+        if (!_fittingsWrittenAt.TryGetValue(charId, out var wrote)) return false;
+        if (DateTimeOffset.UtcNow > wrote.AddMinutes(15)) { _fittingsWrittenAt.Remove(charId); return false; }
+        return IsStaleRead(wrote, generatedAt, DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>A response generated at or before a local write (both on ESI's clock) is stale, for up to 15 minutes.</summary>
+    public static bool IsStaleRead(DateTimeOffset wroteAt, DateTimeOffset? generatedAt, DateTimeOffset now) =>
+        now <= wroteAt.AddMinutes(15) && (generatedAt is not { } g || g <= wroteAt);
 
     private bool ShouldHide(long typeId) => false;
 
@@ -429,7 +633,8 @@ public sealed class SyncService : IDisposable
     private async Task RefreshPricesInternal(CancellationToken ct)
     {
         var hub = PriceHubDef.ByKey(_settings.PriceHub);
-        var typeIds = _assetCache.Values.SelectMany(v => v).Select(r => r.TypeId).Distinct().ToList();
+        var typeIds = _assetCache.Values.SelectMany(v => v).Select(r => r.TypeId)
+            .Concat(FitTypeIds()).Distinct().ToList();
         if (typeIds.Count == 0) return;
         Status($"Fetching {typeIds.Count} prices from {hub.Label}…");
 
@@ -459,6 +664,71 @@ public sealed class SyncService : IDisposable
         }
         _priceSyncedAt = DateTimeOffset.UtcNow;
         _store.Save("cache/prices.json", new PriceFile { Prices = _prices, SyncedAt = _priceSyncedAt, Hub = hub.Key });
+    }
+
+    /// <summary>Hulls and items of saved fittings, plus types the REFIT screen asked about.</summary>
+    private IEnumerable<long> FitTypeIds() =>
+        _fittingCache.Values.SelectMany(l => l).SelectMany(f => f.Items.Select(i => i.TypeId).Append(f.ShipTypeId)).Concat(_extraTypes);
+
+    /// <summary>Resolves type names (e.g. from a pasted EFT fit) via POST /universe/ids/. Unknown names are left out.</summary>
+    public async Task<Dictionary<string, long>> ResolveTypeNames(IEnumerable<string> names, CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        var list = names.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (list.Count == 0 || DemoMode || _auth.Count == 0) return result;
+        try
+        {
+            using var doc = await _esi.PostJson("/universe/ids/", list, null, ct);
+            if (doc.RootElement.TryGetProperty("inventory_types", out var inv))
+                foreach (var t in inv.EnumerateArray())
+                    result[t.GetProperty("name").GetString() ?? ""] = t.GetProperty("id").GetInt64();
+            await EnsureTypes(result.Values, ct);
+        }
+        catch (Exception ex) { Status("Name lookup failed: " + ex.Message); }
+        return result;
+    }
+
+    /// <summary>Makes sure the given types have names, categories, hull slots and prices in the snapshot.</summary>
+    public async Task EnsureTypes(IEnumerable<long> typeIds, CancellationToken ct = default)
+    {
+        var ids = typeIds.Where(t => t > 0).Distinct().ToList();
+        if (ids.Count == 0 || DemoMode || _auth.Count == 0) return;
+        var fresh = ids.Where(_extraTypes.Add).ToList();
+        if (fresh.Count == 0) return;
+        try
+        {
+            await _universe.ResolveTypes(fresh, ct);
+            await _universe.ResolveSlots(fresh.Where(t => _universe.Cache.Types.GetValueOrDefault(t)?.Category == "Ships"), ct);
+            _universe.Persist();
+            var hub = PriceHubDef.ByKey(_settings.PriceHub);
+            foreach (var tid in fresh.Where(t => !_prices.ContainsKey(t)))
+            {
+                var orders = await _esi.GetPaged($"/markets/{hub.RegionId}/orders/?type_id={tid}", null, ct);
+                double sell = 0, buy = 0;
+                foreach (var o in orders)
+                {
+                    var price = o.GetProperty("price").GetDouble();
+                    if (!o.GetProperty("is_buy_order").GetBoolean()) { if (o.GetProperty("location_id").GetInt64() == hub.StationId && (sell == 0 || price < sell)) sell = price; }
+                    else if (price > buy) buy = price;
+                }
+                if (sell > 0 || buy > 0) _prices[tid] = new PriceEntry { Sell = sell, Buy = buy };
+            }
+            _store.Save("cache/prices.json", new PriceFile { Prices = _prices, SyncedAt = _priceSyncedAt, Hub = hub.Key });
+        }
+        catch (Exception ex) { Status("Type lookup failed: " + ex.Message); }
+        Broadcast();
+    }
+
+    // ---------- refit plans ----------
+
+    /// <summary>Saved REFIT plans (%APPDATA%\HangarScope\refits.json). Demo mode keeps plans in memory only.</summary>
+    public RefitFile LoadRefits() => DemoMode || _auth.Count == 0 ? new RefitFile() : _store.Load<RefitFile>("refits.json");
+
+    public void SaveRefits(RefitFile file)
+    {
+        if (DemoMode || _auth.Count == 0) return;
+        try { _store.Save("refits.json", file); }
+        catch (Exception ex) { Status("Saving refit plans failed: " + ex.Message); }
     }
 
     // ---------- routes ----------
@@ -583,6 +853,32 @@ public sealed class SyncService : IDisposable
             }
         }
 
+        foreach (var ships in _shipCache.Values) snap.Ships.AddRange(ships);
+        foreach (var fits in _fittingCache.Values) snap.Fittings.AddRange(fits);
+        foreach (var tid in snap.Ships.SelectMany(s => s.Items.Select(i => i.TypeId).Append(s.TypeId))
+                     .Concat(snap.Fittings.SelectMany(f => f.Items.Select(i => i.TypeId).Append(f.ShipTypeId))))
+        {
+            if (!snap.TypeNames.ContainsKey(tid))
+                snap.TypeNames[tid] = _universe.Cache.Types.GetValueOrDefault(tid)?.Name ?? $"Type {tid}";
+        }
+        foreach (var s in snap.Ships)
+        {
+            if (!snap.Stations.ContainsKey(s.StationId)) snap.Stations[s.StationId] = BuildStation(s.StationId);
+        }
+
+        // type facts for the REFIT planner: category (charges vs modules), price, hull slots
+        foreach (var tid in snap.TypeNames.Keys.Concat(_extraTypes).Concat(snap.Assets.Select(a => a.TypeId)))
+        {
+            if (snap.Types.ContainsKey(tid)) continue;
+            var te = _universe.Cache.Types.GetValueOrDefault(tid);
+            var pe = _prices.GetValueOrDefault(tid);
+            snap.Types[tid] = new TypeMeta
+            {
+                Name = te?.Name ?? $"Type {tid}", Group = te?.Group ?? "", Category = te?.Category ?? "",
+                Sell = pe?.Sell ?? 0, Buy = pe?.Buy ?? 0, Slots = te?.Slots,
+            };
+        }
+
         snap.Journal = _journal.Values.OrderByDescending(j => j.Ts).Take(500).ToList();
         foreach (var j in snap.Journal)
         {
@@ -630,6 +926,8 @@ public sealed class SyncService : IDisposable
         _store.PurgeCache();
         _universe.Reset();
         _assetCache.Clear();
+        _shipCache.Clear();
+        _fittingCache.Clear();
         _prices = new Dictionary<long, PriceEntry>();
         _routes = new Dictionary<string, int>();
         _journal = new Dictionary<string, JournalEntry>();

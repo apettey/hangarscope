@@ -59,6 +59,63 @@ public static class DemoData
         A("Warrior II", "Combat Drone", "Drones", 300, M, 6, OwnershipFlag.Hangar, 0.3e6, 0.25e6);
         A("Pyerite", "Mineral", "Minerals", 3100000, M, 3, OwnershipFlag.Hangar, 12, 10.5);
 
+        // ---- REFIT demo: three Paladins at 1DQ1-A on three pilots, one spare in Amarr, a few spare modules
+        var types = RefitTypes();
+        var ships = new List<ShipInstance>
+        {
+            Ship(9101, "Lasers Go Brr", K, 5,
+                (Mpl, "HiSlot", 4), (Bast, "HiSlot", 1), (Tract, "HiSlot", 1), (Salv, "HiSlot", 1),
+                (Mjd, "MedSlot", 1), (Tc, "MedSlot", 2), (Hcb, "MedSlot", 1),
+                (Lar, "LoSlot", 2), (Hs, "LoSlot", 3), (Te, "LoSlot", 1), (Eanm, "LoSlot", 1),
+                (Elc, "RigSlot", 1), (Ema, "RigSlot", 1), (Hob, "DroneBay", 5), (Imf, "Cargo", 8), (Hob, "Cargo", 6)),
+            Ship(9102, "Crater Anchor", M, 5,
+                (Mpl, "HiSlot", 4), (Bast, "HiSlot", 1), (Dla, "HiSlot", 1), (Tract, "HiSlot", 1),
+                (Mjd, "MedSlot", 1), (Tc, "MedSlot", 1), (Sb, "MedSlot", 1), (Hcb, "MedSlot", 1),
+                (Lar, "LoSlot", 1), (Hs, "LoSlot", 3), (Te, "LoSlot", 2), (Dda, "LoSlot", 1),
+                (Elc, "RigSlot", 2), (Ham, "DroneBay", 5)),
+            Ship(9103, "Sergeant's Old Fit", R, 5,
+                (Mpl, "HiSlot", 4), (Bast, "HiSlot", 1), (Salv, "HiSlot", 2),
+                (Mjd, "MedSlot", 1), (Tc, "MedSlot", 1), (Hcb, "MedSlot", 2),
+                (Lar, "LoSlot", 2), (Hs, "LoSlot", 2), (Eanm, "LoSlot", 2), (Dda, "LoSlot", 1),
+                (Ecr, "RigSlot", 1), (Ema, "RigSlot", 1), (Hob, "DroneBay", 3)),
+            Ship(9104, "Hisec Spare", M, 3,
+                (Mpl, "HiSlot", 4), (Bast, "HiSlot", 1), (Mjd, "MedSlot", 1), (Lar, "LoSlot", 2), (Hs, "LoSlot", 4)),
+        };
+        // loaded crystals sit under the laser's HiSlot flag in real ESI data: charges, never modules
+        foreach (var sh in ships)
+            foreach (var slot in sh.Items.Where(i => i.TypeId == Mpl).Select(i => i.Flag).ToList())
+                sh.Items.Add(new FitItem { TypeId = Imf, Flag = slot, Qty = 1 });
+
+        void T(long typeId, long qty, long ch, long st, OwnershipFlag flag)
+        {
+            var t = types[typeId];
+            assets.Add(new AssetStack
+            {
+                TypeId = typeId, Name = t.Name, Group = t.Group, Category = t.Category, Qty = qty, CharId = ch, StationId = st,
+                Flag = flag, Sell = t.Sell, Buy = t.Buy, Search = $"{t.Name} {t.Group} {stations[st].Name}".ToLowerInvariant(),
+            });
+        }
+        foreach (var sh in ships)
+        {
+            T(Paladin, 1, sh.CharId, sh.StationId, OwnershipFlag.Hangar);
+            foreach (var g in sh.Items.GroupBy(i => (i.TypeId, fitted: FitMath.IsFittedFlag(i.Flag))))
+                T(g.Key.TypeId, g.Sum(i => i.Qty), sh.CharId, sh.StationId, g.Key.fitted ? OwnershipFlag.Fitted : OwnershipFlag.Container);
+        }
+        T(Hs, 4, R, 5, OwnershipFlag.Container);
+        T(Tc, 1, M, 5, OwnershipFlag.Hangar);
+        T(Elc, 1, K, 1, OwnershipFlag.Hangar);
+        T(Te, 2, M, 3, OwnershipFlag.Hangar);
+
+        var fittings = new List<SavedFitting>
+        {
+            new() { FittingId = 1, CharId = K, Name = "Crater Paladin · Doctrine v2", ShipTypeId = Paladin, Items = Doctrine().ToList() },
+            new() { FittingId = 2, CharId = M, Name = "Crater Paladin · Doctrine v2", ShipTypeId = Paladin, Items = Doctrine().ToList() },
+            new() { FittingId = 3, CharId = K, Name = "Paladin · Blitz C5", ShipTypeId = Paladin, Items = Blitz().ToList() },
+            new() { FittingId = 4, CharId = R, Name = "Ishtar · Sentry anoms", ShipTypeId = Ishtar, Items = Sentry().ToList() },
+            new() { FittingId = 5, CharId = K, Name = "Ishtar · Sentry anoms", ShipTypeId = Ishtar, Items = Sentry().ToList() },
+            new() { FittingId = 6, CharId = M, Name = "Ishtar · Sentry", ShipTypeId = Ishtar, Items = Sentry().ToList() },
+        };
+
         var year = DateTimeOffset.UtcNow.Year;
         var journal = new List<JournalEntry>();
         void J(string mmddhhmm, long ch, string desc, string refType, double amount, long? st)
@@ -87,10 +144,102 @@ public static class DemoData
             Stations = stations,
             Assets = assets,
             Journal = journal,
+            Ships = ships,
+            Fittings = fittings,
+            Types = types,
+            TypeNames = types.ToDictionary(kv => kv.Key, kv => kv.Value.Name),
             PriceSyncedAt = DateTimeOffset.UtcNow.AddMinutes(-4),
             CacheSizeBytes = (long)(18.4 * 1024 * 1024),
         };
     }
+
+    // demo-only type ids for the REFIT dataset
+    private const long Paladin = 990001, Ishtar = 990002, Mpl = 990010, Bast = 990011, Tract = 990012, Salv = 990013, Dla = 990014,
+        Mjd = 990020, Tc = 990021, Hcb = 990022, Sb = 990023, Lar = 990030, Hs = 990031, Te = 990032, Eanm = 990033, Dda = 990034,
+        Elc = 990040, Ema = 990041, Ecr = 990042, Hob = 990050, Ham = 990051, Imf = 990060;
+
+    private static Dictionary<long, TypeMeta> RefitTypes()
+    {
+        static TypeMeta Ty(string name, string group, string cat, double sell, SlotLayout? slots = null) =>
+            new() { Name = name, Group = group, Category = cat, Sell = sell, Buy = sell * 0.92, Slots = slots };
+        return new Dictionary<long, TypeMeta>
+        {
+            [Paladin] = Ty("Paladin", "Marauder", "Ships", 1.62e9, new SlotLayout { High = 8, Med = 4, Low = 7, Rig = 2 }),
+            [Ishtar] = Ty("Ishtar", "Heavy Assault Cruiser", "Ships", 320e6, new SlotLayout { High = 5, Med = 4, Low = 5, Rig = 2 }),
+            [Mpl] = Ty("Mega Pulse Laser II", "Energy Weapon", "Modules", 3.1e6),
+            [Bast] = Ty("Bastion Module I", "Siege Module", "Modules", 61e6),
+            [Tract] = Ty("Small Tractor Beam II", "Tractor Beam", "Modules", 1.9e6),
+            [Salv] = Ty("Salvager II", "Salvager", "Modules", 0.9e6),
+            [Dla] = Ty("Drone Link Augmentor II", "Drone Control Range Module", "Modules", 4.4e6),
+            [Mjd] = Ty("Large Micro Jump Drive", "Micro Jump Drive", "Modules", 27.5e6),
+            [Tc] = Ty("Tracking Computer II", "Tracking Computer", "Modules", 2.6e6),
+            [Hcb] = Ty("Heavy Capacitor Booster II", "Capacitor Booster", "Modules", 6.3e6),
+            [Sb] = Ty("Sensor Booster II", "Sensor Booster", "Modules", 1.2e6),
+            [Lar] = Ty("Large Armor Repairer II", "Armor Repair Unit", "Modules", 3.4e6),
+            [Hs] = Ty("Heat Sink II", "Heat Sink", "Modules", 1.1e6),
+            [Te] = Ty("Tracking Enhancer II", "Tracking Enhancer", "Modules", 1.0e6),
+            [Eanm] = Ty("Energized Adaptive Nano Membrane II", "Armor Plating Energized", "Modules", 2.2e6),
+            [Dda] = Ty("Drone Damage Amplifier II", "Drone Damage Modules", "Modules", 1.6e6),
+            [Elc] = Ty("Large Energy Locus Coordinator II", "Rig Energy Weapon", "Modules", 28e6),
+            [Ema] = Ty("Large Energy Metastasis Adjuster I", "Rig Energy Weapon", "Modules", 2.4e6),
+            [Ecr] = Ty("Large Energy Collision Accelerator I", "Rig Energy Weapon", "Modules", 1.8e6),
+            [Hob] = Ty("Hobgoblin II", "Combat Drone", "Drones", 0.55e6),
+            [Ham] = Ty("Hammerhead II", "Combat Drone", "Drones", 1.3e6),
+            [Imf] = Ty("Imperial Navy Multifrequency L", "Advanced Frequency Crystal", "Ammunition", 2.1e6),
+        };
+    }
+
+    private static FitItem[] Doctrine() => Items(
+        (Mpl, "HiSlot", 4), (Bast, "HiSlot", 1), (Tract, "HiSlot", 1), (Salv, "HiSlot", 1), (Dla, "HiSlot", 1),
+        (Mjd, "MedSlot", 1), (Tc, "MedSlot", 2), (Hcb, "MedSlot", 1),
+        (Lar, "LoSlot", 2), (Hs, "LoSlot", 3), (Te, "LoSlot", 1), (Eanm, "LoSlot", 1),
+        (Elc, "RigSlot", 2), (Hob, "DroneBay", 5), (Imf, "Cargo", 8));
+
+    private static FitItem[] Blitz() => Items(
+        (Mpl, "HiSlot", 4), (Bast, "HiSlot", 1), (Dla, "HiSlot", 1),
+        (Mjd, "MedSlot", 1), (Tc, "MedSlot", 2), (Sb, "MedSlot", 1),
+        (Hs, "LoSlot", 4), (Te, "LoSlot", 2), (Dda, "LoSlot", 1),
+        (Elc, "RigSlot", 2), (Ham, "DroneBay", 5));
+
+    private static FitItem[] Sentry() => Items(
+        (Dla, "HiSlot", 2), (Tc, "MedSlot", 2), (Dda, "LoSlot", 3), (Lar, "LoSlot", 1), (Hob, "DroneBay", 5));
+
+    private static FitItem[] Items(params (long type, string slot, long qty)[] items)
+    {
+        // modules get one numbered slot each (HiSlot0, HiSlot1…); bays and cargo keep one stack
+        var next = new Dictionary<string, int>();
+        var list = new List<FitItem>();
+        foreach (var (type, slot, qty) in items)
+        {
+            if (slot is "DroneBay" or "Cargo") { list.Add(new FitItem { TypeId = type, Flag = slot, Qty = qty }); continue; }
+            for (var i = 0; i < qty; i++)
+            {
+                var n = next.GetValueOrDefault(slot);
+                next[slot] = n + 1;
+                list.Add(new FitItem { TypeId = type, Flag = slot + n, Qty = 1 });
+            }
+        }
+        return list.ToArray();
+    }
+
+    private static ShipInstance Ship(long itemId, string name, long ch, long st, params (long type, string slot, long qty)[] items) => new()
+    {
+        ItemId = itemId, TypeId = Paladin, Name = name, CharId = ch, StationId = st, Items = Items(items).ToList(),
+    };
+
+    /// <summary>Initial REFIT state in demo mode: the three 1DQ1-A Paladins onto the doctrine fit, plus one new hull.</summary>
+    public static SavedRefitPlan RefitDefaults() => new()
+    {
+        ShipFilter = "Paladin",
+        ShipItemIds = new List<long> { 9101, 9102, 9103 },
+        Target = new RefitTarget
+        {
+            ShipTypeId = Paladin, Name = "Crater Paladin · Doctrine v2",
+            Lines = RefitPlanner.ToLines(Doctrine(), RefitTypes()),
+        },
+        NewHulls = 1,
+        NewHullCharId = 1,
+    };
 
     private static StationInfo St(long id, string name, string region, params (long ch, int j)[] jumps) => new()
     {

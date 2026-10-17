@@ -11,6 +11,7 @@ Built with **.NET 10 + Avalonia UI** (C#, XAML, MVVM). The UI is a faithful recr
 Full feature documentation with screenshots: **[docs/FEATURES.md](docs/FEATURES.md)**.
 
 - **ASSETS** — filterable/sortable asset browser: search, multi-select character chips (value-sorted, scrollable), distance-from selector, region/category/ownership/min-value filters, location tree, virtualized 8-column table with jump-distance coloring.
+- **REFIT** — consolidate several ships (on any pilots) onto one fit: per-ship strip/fit work orders with their source (swap, contract, pickup, buy), pickup and shopping lists, new hulls, slot checks, EFT import/export, multibuy export, and a FITTINGS library that syncs saved in-game fits across pilots. See [REFIT](#refit).
 - **DASHBOARD** — total net worth, per-character cards in a value-sorted wrap grid, value-by-region bars (top 12 + OTHERS), top 10 holdings.
 - **WALLET** — liquid ISK totals, per-character balances with 30-day delta, 30-day flow by ref-type and by station, accumulated journal (kept locally beyond ESI's 30-day window).
 - **LOCATIONS** — live per-character cards: system (security-colored), region, ship, docked status, nearest asset hubs by jumps.
@@ -18,6 +19,27 @@ Full feature documentation with screenshots: **[docs/FEATURES.md](docs/FEATURES.
 - **SETTINGS** — user-supplied ESI application credentials (stored DPAPI-encrypted, never leave the machine), price hub/side, sync cadences, citadel name policy, cache purge.
 
 Until a character is linked, the app shows the design's demo dataset so every screen is explorable (`--demo` forces it).
+
+## REFIT
+
+![Refit consolidation matrix](docs/screenshots/refit-matrix.png)
+
+Select the ships to standardise in the rail (filter by hull, ship name or pilot), then set the target: an in-game fit from any pilot (**IN-GAME FIT ▾**), pasted EFT, a copy of one ship, or the union of all of them. HangarScope then shows, per ship, what to strip and what to fit, and where every fitted item comes from:
+
+- **SWAP** — stripped from another selected ship of the same pilot (always tried first);
+- **CONTRACT** — stripped from another pilot's ship, moved with an item-exchange contract (can be turned off);
+- **PICKUP** — unfitted stock in a hangar, container or ship's cargo, with location, owner and jumps;
+- **BUY** — what is still missing, priced at the configured hub. New hulls go on the same list.
+
+Rigs are destroyed when removed, so they are never swapped. Loaded charges (crystals, scripts) are never treated as modules. Each slot group is checked against the hull's slot count.
+
+![Refit work orders](docs/screenshots/refit-work-orders.png)
+
+The shopping list copies as an in-game **Multibuy** list; the target copies as EFT. **SAVE TARGET TO ALL PILOTS** saves the target as an in-game fitting on every pilot who lacks it, and the **FITTINGS LIBRARY** view pushes or deletes fits across pilots. Every in-game write waits for an explicit **CONFIRM · WRITE IN GAME**. Plans are saved to `%APPDATA%\HangarScope\refits.json`.
+
+![Fittings library](docs/screenshots/fittings-library.png)
+
+Full details, including the planner's rules: [docs/FEATURES.md](docs/FEATURES.md#refit--consolidate-several-ships-onto-one-fit).
 
 ## Getting started
 
@@ -29,6 +51,10 @@ Until a character is linked, the app shows the design's demo dataset so every sc
    - `esi-location.read_ship_type.v1`
    - `esi-universe.read_structures.v1`
    - `esi-wallet.read_character_wallet.v1`
+   - `esi-fittings.read_fittings.v1` — reads each character's saved in-game fittings
+   - `esi-fittings.write_fittings.v1` — saves or deletes fittings in a character's in-game Fitting window (only on an explicit, confirmed action in REFIT)
+
+   Characters linked before the fittings scopes were added keep working; they show fewer scopes granted in **CHARACTERS** and skip fittings until you authenticate them again.
 4. In **SETTINGS**, paste your client ID + secret key, **SAVE CREDENTIALS**, then **TEST CONNECTION**.
 5. In **CHARACTERS**, click **AUTHENTICATE VIA EVE SSO** — your browser opens; log in and authorize. Repeat per character.
 
@@ -44,13 +70,18 @@ HangarScope/
     SsoService   EVE SSO OAuth2 authorization-code + PKCE, localhost callback listener
     UniverseSvc  type/group/category, station/structure, system/region resolution + cache
     SyncService  orchestrates syncs, aggregates asset stacks, computes routes, builds snapshots
+    RefitPlanner pure REFIT planner: strip/fit orders, swaps, contracts, pickups, buys, slot checks
+    EftFormat    EFT fitting import/export and multibuy export
     JsonStore    JSON persistence under %APPDATA%\HangarScope, DPAPI for secrets/tokens
   ViewModels/    MVVM (CommunityToolkit.Mvvm); MainViewModel ports the prototype's logic 1:1
-  Views/         six screens + custom title-bar window, styled to the design tokens
+  Views/         seven screens + custom title-bar window, styled to the design tokens
   Controls/      FractionBar (proportional value bars)
+HangarScope.Tests/  xUnit tests for the REFIT planner, EFT format and fittings cache rules
 ```
 
-Storage: everything lives in `%APPDATA%\HangarScope` — settings, encrypted credentials/refresh tokens (Windows DPAPI), and a `cache/` directory (assets, prices, routes, universe, accumulated journal) that PURGE CACHE clears. Sync events log to `sync.log`, UI timings to `perf.log`.
+Tests: `dotnet test HangarScope.slnx` (CI runs every `*.Tests.csproj`).
+
+Storage: everything lives in `%APPDATA%\HangarScope` — settings, encrypted credentials/refresh tokens (Windows DPAPI), and a `cache/` directory (assets, per-ship fits in `ships-{charId}.json`, saved in-game fittings in `fittings-{charId}.json`, prices, routes, universe incl. hull slot counts, accumulated journal) that PURGE CACHE clears. REFIT plans are kept in `refits.json`, outside the cache. Sync events log to `sync.log`, UI timings to `perf.log`.
 
 Performance: the asset table is virtualized and the view model recomputes per-screen sections lazily (search debounced, sync broadcasts coalesced, sort clicks reorder without re-filtering) — the UI stays responsive with tens of thousands of asset items. For fastest startup, publish with ReadyToRun:
 

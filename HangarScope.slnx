@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="HangarScope/HangarScope.csproj" />
+  <Project Path="HangarScope.Tests/HangarScope.Tests.csproj" />
+</Solution>
