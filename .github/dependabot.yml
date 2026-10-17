@@ -3,7 +3,9 @@
 version: 2
 updates:
   - package-ecosystem: "nuget"
-    directory: "/HangarScope"
+    directories:
+      - "/HangarScope"
+      - "/HangarScope.Tests"
     schedule:
       interval: "weekly"
       day: "monday"

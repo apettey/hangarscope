@@ -1,0 +1,614 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:HangarScope.Views"
+             x:Class="HangarScope.Views.RefitView">
+  <UserControl.Resources>
+    <DataTemplate x:Key="ListRow">
+      <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="0,5">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0">
+            <TextBlock Text="{Binding QtyText}" FontFamily="{StaticResource Mono}" FontSize="12" TextAlignment="Right"/>
+            <TextBlock Text="{Binding RightText}" IsVisible="{Binding HasRight}" FontFamily="{StaticResource Mono}" FontSize="11" TextAlignment="Right" Foreground="{Binding RightColor}"/>
+          </StackPanel>
+          <StackPanel>
+            <WrapPanel>
+              <TextBlock Text="{Binding Name}" FontSize="13.5" Foreground="{StaticResource Bright}" Margin="0,0,6,0"/>
+              <ItemsControl ItemsSource="{Binding Tags}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate><DataTemplate>
+                  <Border BorderThickness="1" BorderBrush="{Binding Border}" Padding="4,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Text}" FontSize="9.5" LetterSpacing="1.2" Foreground="{Binding Fg}"/>
+                  </Border>
+                </DataTemplate></ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </WrapPanel>
+            <TextBlock Text="{Binding Sub}" FontSize="11" Foreground="{StaticResource Dim}" TextWrapping="Wrap" TextTrimming="None"/>
+            <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding HasSub2}">
+              <Border Width="7" Height="7" Background="{Binding Sub2Color}" VerticalAlignment="Center"/>
+              <TextBlock Text="{Binding Sub2}" FontSize="11" Foreground="{StaticResource Dim}"/>
+            </StackPanel>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid ColumnDefinitions="280,*">
+
+    <!-- ============================== RAIL ============================== -->
+    <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,1,0">
+      <ScrollViewer>
+        <StackPanel Margin="16" Spacing="18">
+
+          <!-- ships -->
+          <StackPanel Spacing="8">
+            <TextBlock Classes="label" Text="{Binding RefitShipsHeader}"/>
+            <TextBox Text="{Binding RefitShipFilter}" PlaceholderText="Filter by hull, ship name or pilot…"/>
+            <!-- virtualized: real accounts can own hundreds of hulls -->
+            <ListBox ItemsSource="{Binding RefitShips}" MaxHeight="320" Background="Transparent" Padding="0" Classes="plain">
+              <ListBox.ItemsPanel>
+                <ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate>
+              </ListBox.ItemsPanel>
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Button Classes="flat ship" Command="{Binding Toggle}" Margin="0,0,0,6">
+                    <Border BorderThickness="1" Padding="10,8"
+                            BorderBrush="{Binding Selected, Converter={x:Static v:Conv.ChipBorder}}"
+                            Background="{Binding Selected, Converter={x:Static v:Conv.ChipBg}}">
+                      <Grid ColumnDefinitions="20,*" RowDefinitions="Auto,Auto,Auto">
+                        <Border Grid.RowSpan="3" Width="12" Height="12" VerticalAlignment="Top" Margin="0,4,0,0" HorizontalAlignment="Left"
+                                BorderThickness="1"
+                                BorderBrush="{Binding Selected, Converter={x:Static v:Conv.BoxBorder}}"
+                                Background="{Binding Selected, Converter={x:Static v:Conv.BoxFill}}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" LetterSpacing="0.5" Foreground="{StaticResource Bright}"/>
+                        <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
+                          <Border Width="8" Height="8" Background="{Binding PilotColor}" VerticalAlignment="Center"/>
+                          <TextBlock Text="{Binding PilotName}" FontSize="12.5" Foreground="{StaticResource Muted}"/>
+                          <TextBlock Text="{Binding Hull}" FontSize="11" LetterSpacing="1.5" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,1,0,0">
+                          <TextBlock Text="{Binding WhereText}" FontSize="12" Foreground="{StaticResource Dim}" MaxWidth="160"/>
+                          <TextBlock Text="{Binding ItemsText}" FontFamily="{StaticResource Mono}" FontSize="10.5" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </Button>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+
+          <!-- target fit -->
+          <StackPanel Spacing="8">
+            <TextBlock Classes="label" Text="TARGET FIT"/>
+            <Border BorderBrush="{StaticResource Rule}" BorderThickness="1" Padding="10,8" Background="{StaticResource Bg}">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{Binding TargetTitle}" FontSize="14" LetterSpacing="2" FontWeight="SemiBold" Foreground="{StaticResource Brighter}"/>
+                <TextBox Text="{Binding TargetName}" PlaceholderText="Fit name" FontSize="14" Padding="6,4"/>
+                <TextBlock Text="{Binding TargetSub}" FontSize="12" Foreground="{StaticResource Dim}"/>
+              </StackPanel>
+            </Border>
+            <UniformGrid Columns="2" Classes="btngrid">
+              <Button x:Name="FitButton" Classes="action accent rail" Content="IN-GAME FIT ▾">
+                <Button.Flyout>
+                  <Flyout Placement="BottomEdgeAlignedLeft">
+                    <ScrollViewer MaxHeight="420" Width="340">
+                      <ItemsControl ItemsSource="{Binding FitLibrary}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Button Classes="flat menuitem" Command="{Binding Use}" Click="CloseFlyouts">
+                              <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="12,8">
+                                <StackPanel Spacing="2">
+                                  <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Bright}"/>
+                                  <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding HullName}" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,4,0"/>
+                                    <ItemsControl ItemsSource="{Binding Pilots}" VerticalAlignment="Center">
+                                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                      <ItemsControl.ItemTemplate><DataTemplate>
+                                        <Border Width="8" Height="8" BorderThickness="1" BorderBrush="{Binding Color}" Background="{Binding Fill}" ToolTip.Tip="{Binding Name}"/>
+                                      </DataTemplate></ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{Binding SavedOnText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Dim}" Margin="4,0,0,0"/>
+                                  </StackPanel>
+                                </StackPanel>
+                              </Border>
+                            </Button>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                  </Flyout>
+                </Button.Flyout>
+              </Button>
+              <Button Classes="action rail" Content="PASTE EFT" Command="{Binding OpenEftCommand}"/>
+              <Button x:Name="ShipButton" Classes="action rail" Content="COPY SHIP ▾">
+                <Button.Flyout>
+                  <Flyout Placement="BottomEdgeAlignedLeft">
+                    <ItemsControl ItemsSource="{Binding CopyShipOptions}" Width="260">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Button Classes="flat menuitem" Command="{Binding Go}" Click="CloseFlyouts">
+                            <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="12,8">
+                              <StackPanel>
+                                <TextBlock Text="{Binding Label}" FontSize="14" Foreground="{StaticResource Bright}"/>
+                                <TextBlock Text="{Binding Sub}" FontSize="12" Foreground="{StaticResource Dim}"/>
+                              </StackPanel>
+                            </Border>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Flyout>
+                </Button.Flyout>
+              </Button>
+              <Button Classes="action rail" Content="UNION OF ALL" Command="{Binding UnionTargetCommand}"/>
+              <Button Classes="action rail" Content="CLEAR" Command="{Binding ClearTargetCommand}"/>
+              <Button Classes="action rail" Content="COPY EFT" Command="{Binding CopyTargetEftCommand}"/>
+            </UniformGrid>
+            <StackPanel Spacing="6" IsVisible="{Binding IsEftOpen}">
+              <TextBox Text="{Binding EftText}" AcceptsReturn="True" Height="170" Classes="mono" FontSize="11.5"
+                       TextWrapping="NoWrap" PlaceholderText="[Paladin, My fit]&#x0a;Heat Sink II&#x0a;…"/>
+              <UniformGrid Columns="2" Classes="btngrid">
+                <Button Classes="action accent rail" Content="IMPORT" Command="{Binding ImportEftCommand}"/>
+                <Button Classes="action rail" Content="CANCEL" Command="{Binding CancelEftCommand}"/>
+              </UniformGrid>
+            </StackPanel>
+            <Button Classes="action accent rail" Content="SAVE TARGET TO ALL PILOTS" Command="{Binding AskSaveTargetCommand}" HorizontalAlignment="Stretch"/>
+          </StackPanel>
+
+          <!-- new hulls -->
+          <StackPanel Spacing="8">
+            <TextBlock Classes="label" Text="NEW HULLS TO BUY"/>
+            <DockPanel>
+              <Border DockPanel.Dock="Left" BorderBrush="{StaticResource Rule}" BorderThickness="1" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                  <Button Classes="flat step" Content="−" Command="{Binding NewHullsMinusCommand}"/>
+                  <Border BorderBrush="{StaticResource Rule}" BorderThickness="1,0">
+                    <TextBlock Text="{Binding NewHullsText}" Width="30" TextAlignment="Center" VerticalAlignment="Center"
+                               FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Brighter}"/>
+                  </Border>
+                  <Button Classes="flat step" Content="+" Command="{Binding NewHullsPlusCommand}"/>
+                </StackPanel>
+              </Border>
+              <TextBlock Text="FOR" Classes="label" VerticalAlignment="Center" Margin="10,0,8,0"/>
+              <ComboBox ItemsSource="{Binding NewHullPilotOptions}" SelectedIndex="{Binding NewHullPilotIndex}" FontSize="13"/>
+            </DockPanel>
+            <TextBlock Text="{Binding NewHullWhereText}" FontSize="12" Foreground="{StaticResource Dim}" TextWrapping="Wrap"/>
+          </StackPanel>
+
+          <!-- sources -->
+          <StackPanel Spacing="9">
+            <TextBlock Classes="label" Text="WHERE MODULES CAN COME FROM"/>
+            <ToggleButton Classes="tog" IsChecked="{Binding UseSwaps}" Content="Modules stripped from the selected ships"/>
+            <ToggleButton Classes="tog" IsChecked="{Binding UseStock}" Content="Unfitted stock in hangars and cargo"/>
+            <ToggleButton Classes="tog" IsChecked="{Binding AllowContracts}" Content="Other pilots' items (needs a contract)"/>
+          </StackPanel>
+          <StackPanel Spacing="9">
+            <TextBlock Classes="label" Text="TARGET INCLUDES"/>
+            <ToggleButton Classes="tog" IsChecked="{Binding IncludeDrones}" Content="Drone and fighter bays"/>
+            <ToggleButton Classes="tog" IsChecked="{Binding IncludeCharges}" Content="Charges (crystals, scripts, ammo)"/>
+            <ToggleButton Classes="tog" IsChecked="{Binding IncludeCargo}" Content="Other cargo"/>
+          </StackPanel>
+
+          <!-- saved plans -->
+          <StackPanel Spacing="8">
+            <TextBlock Classes="label" Text="SAVED PLANS"/>
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Classes="action rail" Content="SAVE" Command="{Binding SavePlanCommand}" Margin="6,0,0,0" Padding="12,7"/>
+              <TextBox Text="{Binding PlanNameInput}" PlaceholderText="Plan name" FontSize="14"/>
+            </DockPanel>
+            <ItemsControl ItemsSource="{Binding SavedPlans}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="0,6">
+                    <DockPanel>
+                      <Button DockPanel.Dock="Right" Classes="action danger" Content="×" Command="{Binding Delete}" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                      <Button DockPanel.Dock="Right" Classes="action" Content="LOAD" Command="{Binding Load}" Padding="10,2" VerticalAlignment="Center" LetterSpacing="1.5"/>
+                      <StackPanel>
+                        <TextBlock Text="{Binding Name}" FontSize="14" Foreground="{StaticResource Bright}"/>
+                        <TextBlock Text="{Binding SubText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Dim}"/>
+                      </StackPanel>
+                    </DockPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- ============================== MAIN ============================== -->
+    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,36">
+
+      <!-- mode bar -->
+      <Border Grid.Row="0" Height="38" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,0,1">
+        <DockPanel Margin="18,0">
+          <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="2">
+            <Button Classes="flat tab" Command="{Binding ShowPlanCommand}" VerticalAlignment="Stretch">
+              <Border BorderThickness="0,0,0,2" Padding="10,0" BorderBrush="{Binding RefitPlanMode, Converter={x:Static v:Conv.TabBorder}}">
+                <TextBlock Text="CONSOLIDATION PLAN" FontSize="12" LetterSpacing="2" VerticalAlignment="Center"
+                           Foreground="{Binding RefitPlanMode, Converter={x:Static v:Conv.TabText}}"/>
+              </Border>
+            </Button>
+            <Button Classes="flat tab" Command="{Binding ShowFittingsCommand}" VerticalAlignment="Stretch">
+              <Border BorderThickness="0,0,0,2" Padding="10,0" BorderBrush="{Binding RefitFittingsMode, Converter={x:Static v:Conv.TabBorder}}">
+                <TextBlock Text="FITTINGS LIBRARY" FontSize="12" LetterSpacing="2" VerticalAlignment="Center"
+                           Foreground="{Binding RefitFittingsMode, Converter={x:Static v:Conv.TabText}}"/>
+              </Border>
+            </Button>
+          </StackPanel>
+          <TextBlock Text="{Binding RefitStatusText}" FontSize="11" LetterSpacing="1.5" Foreground="{StaticResource Amber}"
+                     VerticalAlignment="Center" TextAlignment="Right" Margin="16,0,0,0"/>
+        </DockPanel>
+      </Border>
+
+      <!-- explicit confirmation before anything is written to the game -->
+      <Border Grid.Row="1" IsVisible="{Binding HasPendingWrite}" BorderBrush="{StaticResource Amber}" BorderThickness="1"
+              Background="#14110a" Margin="18,12,18,0" Padding="14,10">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">
+            <Button Classes="action accent" Content="CONFIRM · WRITE IN GAME" Command="{Binding ConfirmWriteCommand}" Padding="14,7" LetterSpacing="1.5"/>
+            <Button Classes="action" Content="CANCEL" Command="{Binding CancelWriteCommand}" Padding="14,7" LetterSpacing="1.5"/>
+          </StackPanel>
+          <StackPanel Spacing="3">
+            <TextBlock Text="WRITES TO EVE ONLINE · CONFIRM" FontSize="11" LetterSpacing="2" Foreground="{StaticResource Amber}"/>
+            <TextBlock Text="{Binding PendingWriteText}" FontSize="13.5" Foreground="{StaticResource Bright}" TextWrapping="Wrap" TextTrimming="None"/>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- PLAN -->
+      <ScrollViewer Grid.Row="2" x:Name="PlanScroll" IsVisible="{Binding RefitPlanMode}" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MinWidth="980">
+          <!-- summary cards -->
+          <ItemsControl ItemsSource="{Binding RefitCards}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="5"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border BorderBrush="{StaticResource Rule}" BorderThickness="0,0,1,1" Padding="18,14">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="label" Text="{Binding Label}"/>
+                    <TextBlock Text="{Binding Value}" FontFamily="{StaticResource Mono}" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource Bright}"/>
+                    <TextBlock Text="{Binding Sub}" FontSize="12" LetterSpacing="1" Foreground="{StaticResource Dim}"/>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- consolidation matrix -->
+          <DockPanel Margin="18,14,18,8">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="0">
+              <TextBlock Classes="label" Text="−N STRIP" Foreground="{StaticResource Amber}"/>
+              <TextBlock Classes="label" Text="  ·  "/>
+              <TextBlock Classes="label" Text="+N FIT" Foreground="{StaticResource Accent}"/>
+              <TextBlock Classes="label" Text="  ·  "/>
+              <TextBlock Classes="label" Text="✓ KEEP"/>
+            </StackPanel>
+            <TextBlock Classes="label" Text="CONSOLIDATION MATRIX · CURRENT FIT PER SHIP VS TARGET"/>
+          </DockPanel>
+          <TextBlock IsVisible="{Binding MatrixEmpty}" Margin="18,8,18,18" FontSize="14" Foreground="{StaticResource Dim}"
+                     Text="Select the ships to standardise in the rail, then set a target fit." TextWrapping="Wrap"/>
+
+          <Border BorderBrush="{StaticResource Rule}" BorderThickness="0,0,0,1" Padding="18,0" IsVisible="{Binding !MatrixEmpty}">
+            <Grid ColumnDefinitions="*,Auto,100,250,96" Height="28">
+              <TextBlock Grid.Column="0" Classes="label" Text="MODULE" VerticalAlignment="Center"/>
+              <ItemsControl Grid.Column="1" ItemsSource="{Binding MatrixCols}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Width="64" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="5" ToolTip.Tip="{Binding Tip}" VerticalAlignment="Center">
+                      <Border Width="8" Height="8" Background="{Binding Color}" VerticalAlignment="Center" Margin="18,0,0,0"/>
+                      <TextBlock Classes="label" Text="{Binding Key}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Grid.Column="2" Classes="label" Text="TARGET" TextAlignment="Center" VerticalAlignment="Center"/>
+              <TextBlock Grid.Column="3" Classes="label" Text="SOURCES" VerticalAlignment="Center" Margin="12,0,0,0"/>
+              <TextBlock Grid.Column="4" Classes="label" Text="BUY COST" TextAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
+          <ItemsControl ItemsSource="{Binding MatrixRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Panel>
+                  <!-- slot group header -->
+                  <Border IsVisible="{Binding IsSlot}" Height="30" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,0,1" Padding="18,0">
+                    <StackPanel Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Name}" FontSize="11" LetterSpacing="2" Foreground="{StaticResource Muted}" MinWidth="120"/>
+                      <TextBlock Text="{Binding SlotStatus}" FontSize="11" LetterSpacing="2" Foreground="{Binding SlotBrush}"/>
+                    </StackPanel>
+                  </Border>
+                  <!-- module row -->
+                  <Border IsVisible="{Binding IsItem}" Classes="mxrow" Height="36" BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="18,0" Background="Transparent">
+                    <Grid ColumnDefinitions="*,Auto,100,250,96">
+                      <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="14.5" Foreground="{StaticResource Bright}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                      <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <TextBlock Width="64" Text="{Binding Text}" Foreground="{Binding Brush}" TextAlignment="Center"
+                                       FontFamily="{StaticResource Mono}" FontSize="12"/>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <Border Grid.Column="2" BorderBrush="{StaticResource Rule}" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                          <Button Classes="flat step" Content="−" Command="{Binding Minus}"/>
+                          <Border BorderBrush="{StaticResource Rule}" BorderThickness="1,0">
+                            <TextBlock Text="{Binding TargetText}" Width="28" TextAlignment="Center" VerticalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Brighter}"/>
+                          </Border>
+                          <Button Classes="flat step" Content="+" Command="{Binding Plus}"/>
+                        </StackPanel>
+                      </Border>
+                      <ItemsControl Grid.Column="3" ItemsSource="{Binding Tags}" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border BorderThickness="1" BorderBrush="{Binding Border}" Padding="5,0">
+                              <TextBlock Text="{Binding Text}" FontSize="10" LetterSpacing="1.2" Foreground="{Binding Fg}"/>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <TextBlock Grid.Column="4" Text="{Binding CostText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Muted}"
+                                 TextAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+                  </Border>
+                </Panel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- per-ship work orders -->
+          <Border x:Name="OrdersAnchor" BorderBrush="{StaticResource Rule}" BorderThickness="0,1,0,0" Margin="0,18,0,0">
+            <ItemsControl ItemsSource="{Binding WorkOrders}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderBrush="{StaticResource Rule}" BorderThickness="0,0,1,1" Padding="16,14">
+                    <StackPanel Spacing="8">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Width="8" Height="8" Background="{Binding PilotColor}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" LetterSpacing="1.5" Foreground="{StaticResource Bright}"/>
+                      </StackPanel>
+                      <TextBlock Classes="label" Text="{Binding PilotName}" TextWrapping="Wrap" TextTrimming="None"/>
+                      <TextBlock Classes="label" Text="STRIP" Margin="0,4,0,0"/>
+                      <TextBlock IsVisible="{Binding !HasStrip}" Text="{Binding StripEmpty}" FontSize="13" Foreground="{StaticResource Dim}"/>
+                      <ItemsControl ItemsSource="{Binding Strip}" IsVisible="{Binding HasStrip}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Grid ColumnDefinitions="32,*" Margin="0,1">
+                              <TextBlock Text="{Binding QtyText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Amber}" TextAlignment="Right" Margin="0,0,8,0"/>
+                              <WrapPanel Grid.Column="1">
+                                <TextBlock Text="{Binding Name}" FontSize="13.5" Margin="0,0,6,0"/>
+                                <ItemsControl ItemsSource="{Binding Tags}">
+                                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                  <ItemsControl.ItemTemplate><DataTemplate>
+                                    <Border BorderThickness="1" BorderBrush="{Binding Border}" Padding="4,0" VerticalAlignment="Center">
+                                      <TextBlock Text="{Binding Text}" FontSize="9.5" LetterSpacing="1.2" Foreground="{Binding Fg}"/>
+                                    </Border>
+                                  </DataTemplate></ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                              </WrapPanel>
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <TextBlock Classes="label" Text="FIT" Margin="0,4,0,0"/>
+                      <TextBlock IsVisible="{Binding !HasFit}" Text="{Binding FitEmpty}" FontSize="13" Foreground="{StaticResource Dim}"/>
+                      <ItemsControl ItemsSource="{Binding Fit}" IsVisible="{Binding HasFit}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Grid ColumnDefinitions="32,*" RowDefinitions="Auto,Auto" Margin="0,1,0,3">
+                              <TextBlock Text="{Binding QtyText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Accent}" TextAlignment="Right" Margin="0,0,8,0"/>
+                              <WrapPanel Grid.Column="1">
+                                <TextBlock Text="{Binding Name}" FontSize="13.5" Margin="0,0,6,0"/>
+                                <ItemsControl ItemsSource="{Binding Tags}">
+                                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                  <ItemsControl.ItemTemplate><DataTemplate>
+                                    <Border BorderThickness="1" BorderBrush="{Binding Border}" Padding="4,0" VerticalAlignment="Center">
+                                      <TextBlock Text="{Binding Text}" FontSize="9.5" LetterSpacing="1.2" Foreground="{Binding Fg}"/>
+                                    </Border>
+                                  </DataTemplate></ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                              </WrapPanel>
+                              <TextBlock Grid.Row="1" Grid.Column="1" IsVisible="{Binding HasFrom}" Text="{Binding FromText}" FontSize="11.5"
+                                         Foreground="{StaticResource Dim}" TextWrapping="Wrap" TextTrimming="None"/>
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Border>
+
+          <!-- pickup · shopping · leftovers -->
+          <Grid x:Name="ListsAnchor" ColumnDefinitions="1.1*,1.3*,1*">
+            <Border Grid.Column="0" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,1,0" Padding="16,14">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="label" Text="PICKUP LIST · UNFITTED, NOT ON ANY SHIP"/>
+                <TextBlock IsVisible="{Binding !PickupRows.Count}" Text="No unfitted stock is used." FontSize="13" Foreground="{StaticResource Dim}"/>
+                <ItemsControl ItemsSource="{Binding PickupRows}" ItemTemplate="{StaticResource ListRow}"/>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="1" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,1,0" Padding="16,14">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="label" Text="{Binding ShoppingHeader}"/>
+                <TextBlock IsVisible="{Binding !BuyRows.Count}" Text="Nothing to buy." FontSize="13" Foreground="{StaticResource Dim}"/>
+                <ItemsControl ItemsSource="{Binding BuyRows}" ItemTemplate="{StaticResource ListRow}"/>
+                <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="0,5">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding BuyTotalText}" FontFamily="{StaticResource Mono}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Accent}" VerticalAlignment="Top"/>
+                    <StackPanel>
+                      <TextBlock Text="TOTAL" FontSize="13" FontWeight="SemiBold" LetterSpacing="1" Foreground="{StaticResource Bright}"/>
+                      <TextBlock Text="{Binding BuyTotalSub}" FontSize="11" Foreground="{StaticResource Dim}"/>
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+                <UniformGrid Columns="2" Classes="btngrid">
+                  <Button Classes="action accent rail" Content="COPY MULTIBUY" Command="{Binding CopyMultibuyCommand}"/>
+                  <Button Classes="action rail" Content="COPY EFT" Command="{Binding CopyTargetEftCommand}"/>
+                </UniformGrid>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Padding="16,14">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="label" Text="LEFT OVER AFTER REFIT"/>
+                <TextBlock IsVisible="{Binding !LeftoverRows.Count}" Text="Nothing left over." FontSize="13" Foreground="{StaticResource Dim}"/>
+                <ItemsControl ItemsSource="{Binding LeftoverRows}" ItemTemplate="{StaticResource ListRow}"/>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- FITTINGS LIBRARY -->
+      <Grid Grid.Row="2" IsVisible="{Binding RefitFittingsMode}" RowDefinitions="Auto,Auto,*">
+        <TextBlock Grid.Row="0" Classes="label" Text="{Binding FitLibraryHeader}" Margin="18,14,18,8"/>
+        <Border Grid.Row="1" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,0,1" Padding="18,0">
+          <Grid ColumnDefinitions="2*,1*,1.2*,1.6*,390" Height="28">
+            <TextBlock Grid.Column="0" Classes="label" Text="FITTING" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Classes="label" Text="HULL" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Classes="label" Text="CONTENTS" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="3" Classes="label" Text="PILOTS" VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+        <!-- virtualized: every pilot's saved fits -->
+        <ListBox Grid.Row="2" ItemsSource="{Binding FitLibrary}" Background="Transparent" Padding="0" Classes="plain">
+          <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Border Classes="mxrow" Height="52" BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="18,0" Background="Transparent">
+                <Grid ColumnDefinitions="2*,1*,1.2*,1.6*,390">
+                  <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource Bright}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <TextBlock Grid.Column="1" Text="{Binding HullName}" FontSize="14" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="2" Text="{Binding ModulesText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+                  <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="3">
+                    <ItemsControl ItemsSource="{Binding Pilots}">
+                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate><DataTemplate>
+                        <Border Width="9" Height="9" BorderThickness="1" BorderBrush="{Binding Color}" Background="{Binding Fill}" ToolTip.Tip="{Binding Name}"/>
+                      </DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="{Binding SavedOnText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Muted}"/>
+                      <TextBlock Text="{Binding MissingText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Amber}" IsVisible="{Binding HasMissing}"/>
+                    </StackPanel>
+                  </StackPanel>
+                  <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Classes="action" Content="USE AS TARGET" Command="{Binding Use}" Padding="10,5" LetterSpacing="1.5"/>
+                    <Button Classes="action accent" Content="PUSH TO MISSING" Command="{Binding AskPush}" IsEnabled="{Binding CanPush}" Padding="10,5" LetterSpacing="1.5"/>
+                    <Button Classes="action danger" Content="DELETE" Command="{Binding AskDelete}" Padding="10,5" LetterSpacing="1.5"/>
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+
+      <!-- footer -->
+      <Border Grid.Row="3" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="0,1,0,0">
+        <DockPanel Margin="18,0">
+          <TextBlock DockPanel.Dock="Right" Text="{Binding PriceStatusText}" FontSize="11" LetterSpacing="1.5" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding RefitFooterText}" FontSize="11" LetterSpacing="1.5" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </Grid>
+
+
+  <UserControl.Styles>
+    <Style Selector="Button.rail">
+      <Setter Property="Padding" Value="8,7"/>
+      <Setter Property="LetterSpacing" Value="1.5"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="UniformGrid.btngrid > Button">
+      <Setter Property="Margin" Value="0,0,6,6"/>
+    </Style>
+    <Style Selector="Button.step">
+      <Setter Property="Width" Value="22"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="FontFamily" Value="{StaticResource Mono}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.step:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource HoverChip}"/>
+      <Setter Property="Foreground" Value="{StaticResource Brighter}"/>
+    </Style>
+    <Style Selector="Button.ship:pointerover Border">
+      <Setter Property="BorderBrush" Value="{StaticResource BorderSel}"/>
+    </Style>
+    <Style Selector="Button.menuitem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource HoverChip}"/>
+    </Style>
+    <Style Selector="Button.tab:pointerover TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Brighter}"/>
+    </Style>
+    <Style Selector="Border.mxrow:pointerover">
+      <Setter Property="Background" Value="{StaticResource HoverRow}"/>
+    </Style>
+    <Style Selector="Button.action:disabled">
+      <Setter Property="Opacity" Value="0.35"/>
+    </Style>
+
+    <!-- switch-style toggles: 30×14 track, 8px square knob, cyan when on -->
+    <Style Selector="ToggleButton.tog">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <DockPanel Background="Transparent">
+            <Border Name="Track" DockPanel.Dock="Right" Width="30" Height="14" BorderThickness="1" BorderBrush="{StaticResource BorderSel}" VerticalAlignment="Center" Margin="10,0,0,0">
+              <Border Name="Knob" Width="8" Height="8" Margin="2,0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{StaticResource Dim}"/>
+            </Border>
+            <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center"
+                              TextElement.FontFamily="{StaticResource Ui}" TextElement.FontSize="13.5" TextElement.Foreground="{StaticResource Muted}"/>
+          </DockPanel>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ToggleButton.tog:checked /template/ Border#Track">
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}"/>
+    </Style>
+    <Style Selector="ToggleButton.tog:checked /template/ Border#Knob">
+      <Setter Property="HorizontalAlignment" Value="Right"/>
+      <Setter Property="Background" Value="{StaticResource Accent}"/>
+    </Style>
+
+    <Style Selector="ListBox.plain ListBoxItem">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="CornerRadius" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.plain ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.plain ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <Style Selector="FlyoutPresenter">
+      <Setter Property="Background" Value="{StaticResource Panel}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource BorderSel}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="MaxWidth" Value="420"/>
+    </Style>
+  </UserControl.Styles>
+</UserControl>

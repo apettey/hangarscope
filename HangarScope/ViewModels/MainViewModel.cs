@@ -30,7 +30,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>Screens whose derived data is stale. Sections rebuild only when visible.</summary>
     private readonly HashSet<string> _dirty = new();
-    private static readonly string[] AllSections = { "assets", "dash", "wallet", "loc", "auth" };
+    private static readonly string[] AllSections = { "assets", "refit", "dash", "wallet", "loc", "auth" };
 
     private static readonly string PerfLogPath = System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HangarScope", "perf.log");
@@ -56,9 +56,12 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _sync = sync;
         _priceSide = sync.Settings.DefaultPriceSide == "buy" ? "buy" : "sell";
-        // --screen=dash|wallet|loc|auth|settings opens on that tab (used by doc screenshot automation)
-        var screenArg = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--screen="));
+        // --screen=refit|dash|wallet|loc|auth|settings opens on that tab, --refit-mode=fittings on the
+        // REFIT screen's FITTINGS library (used by doc screenshot automation)
+        var args = Environment.GetCommandLineArgs();
+        var screenArg = args.FirstOrDefault(a => a.StartsWith("--screen="));
         if (screenArg != null) _screen = screenArg["--screen=".Length..];
+        if (args.Contains("--refit-mode=fittings")) { _refitPlanMode = false; _refitFittingsMode = true; }
         _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _searchDebounce.Tick += (_, _) => { _searchDebounce.Stop(); Invalidate("assets"); };
         // coalesce sync broadcast storms (one per character during SyncAll) into one recompute
@@ -358,6 +361,7 @@ public sealed partial class MainViewModel : ObservableObject
         switch (id)
         {
             case "assets": ComputeAssets(); break;
+            case "refit": ComputeRefit(); break;
             case "dash": ComputeDashboard(); break;
             case "wallet": ComputeWallet(); break;
             case "loc": ComputeLocations(); break;
@@ -369,9 +373,9 @@ public sealed partial class MainViewModel : ObservableObject
     private void ComputeGlobal()
     {
         var snap = _snap;
-        IsAssets = _screen == "assets"; IsDash = _screen == "dash"; IsWallet = _screen == "wallet";
+        IsAssets = _screen == "assets"; IsRefit = _screen == "refit"; IsDash = _screen == "dash"; IsWallet = _screen == "wallet";
         IsLoc = _screen == "loc"; IsAuth = _screen == "auth"; IsSettings = _screen == "settings";
-        Tabs = new (string id, string label)[] { ("assets", "ASSETS"), ("dash", "DASHBOARD"), ("wallet", "WALLET"), ("loc", "LOCATIONS"), ("auth", "CHARACTERS"), ("settings", "SETTINGS") }
+        Tabs = new (string id, string label)[] { ("assets", "ASSETS"), ("refit", "REFIT"), ("dash", "DASHBOARD"), ("wallet", "WALLET"), ("loc", "LOCATIONS"), ("auth", "CHARACTERS"), ("settings", "SETTINGS") }
             .Select(t => new TabVm(t.id, t.label, _screen == t.id, new RelayCommand(() => SelectTab(t.id)))).ToList();
         SellActive = _priceSide == "sell"; BuyActive = _priceSide == "buy";
         PriceLabelText = _priceSide.ToUpperInvariant();

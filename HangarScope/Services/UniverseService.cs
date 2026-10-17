@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HangarScope.Models;
 
 namespace HangarScope.Services;
 
@@ -10,7 +11,17 @@ public sealed class UniverseCache
     public Dictionary<long, long> Constellations { get; set; } = new();
     public Dictionary<long, string> Regions { get; set; } = new();
 
-    public sealed class TypeEntry { public string Name { get; set; } = ""; public string Group { get; set; } = ""; public string Category { get; set; } = ""; public long GroupId { get; set; } }
+    public sealed class TypeEntry
+    {
+        public string Name { get; set; } = "";
+        public string Group { get; set; } = "";
+        public string Category { get; set; } = "";
+        public long GroupId { get; set; }
+        /// <summary>True once dogma attributes were read (entries cached before slot support have it false).</summary>
+        public bool Dogma { get; set; }
+        /// <summary>Hull slot counts; null for types without slot attributes.</summary>
+        public SlotLayout? Slots { get; set; }
+    }
     public sealed class StationEntry { public string Name { get; set; } = ""; public long SystemId { get; set; } public bool IsStructure { get; set; } }
     public sealed class SystemEntry { public string Name { get; set; } = ""; public double Sec { get; set; } public long ConstellationId { get; set; } public long RegionId { get; set; } }
 }
@@ -45,15 +56,15 @@ public sealed class UniverseService
                 using var doc = await _esi.GetJson($"/universe/types/{id}/", null, ct);
                 var name = doc.RootElement.GetProperty("name").GetString() ?? $"Type {id}";
                 var groupId = doc.RootElement.GetProperty("group_id").GetInt64();
-                return (id, name, groupId, ok: true);
+                return (id, name, groupId, ok: true, slots: ReadSlots(doc.RootElement));
             }
-            catch { return (id, $"Type {id}", 0L, ok: false); }
+            catch { return (id, $"Type {id}", 0L, ok: false, slots: (SlotLayout?)null); }
         }).ToList();
 
         foreach (var t in tasks)
         {
-            var (id, name, groupId, ok) = await t;
-            Cache.Types[id] = new UniverseCache.TypeEntry { Name = name, GroupId = groupId, Group = "", Category = "" };
+            var (id, name, groupId, ok, slots) = await t;
+            Cache.Types[id] = new UniverseCache.TypeEntry { Name = name, GroupId = groupId, Group = "", Category = "", Dogma = ok, Slots = slots };
         }
 
         var missingGroups = Cache.Types.Values.Where(t => t.GroupId != 0 && t.Group == "").Select(t => t.GroupId).Distinct().ToList();
@@ -74,6 +85,45 @@ public sealed class UniverseService
                 }
             }
             catch { /* leave unresolved */ }
+        }
+    }
+
+    /// <summary>Dogma attributes 14/13/12/1137/1367: high, med, low, rig and subsystem slots. Null when the type has none.</summary>
+    private static SlotLayout? ReadSlots(JsonElement type)
+    {
+        if (!type.TryGetProperty("dogma_attributes", out var attrs) || attrs.ValueKind != JsonValueKind.Array) return null;
+        var l = new SlotLayout();
+        var any = false;
+        foreach (var a in attrs.EnumerateArray())
+        {
+            var v = (int)a.GetProperty("value").GetDouble();
+            switch (a.GetProperty("attribute_id").GetInt32())
+            {
+                case 14: l.High = v; any = true; break;
+                case 13: l.Med = v; any = true; break;
+                case 12: l.Low = v; any = true; break;
+                case 1137: l.Rig = v; any = true; break;
+                case 1367: l.Subsystem = v; any = true; break;
+            }
+        }
+        return any ? l : null;
+    }
+
+    /// <summary>Reads slot counts for hull types cached before slot support (one /universe/types/ call each, then cached).</summary>
+    public async Task ResolveSlots(IEnumerable<long> hullTypeIds, CancellationToken ct)
+    {
+        var missing = hullTypeIds.Distinct().Where(id => !Cache.Types.TryGetValue(id, out var t) || !t.Dogma).ToList();
+        if (missing.Count == 0) return;
+        await ResolveTypes(missing.Where(id => !Cache.Types.ContainsKey(id)), ct);
+        foreach (var id in missing.Where(id => Cache.Types.TryGetValue(id, out var t) && !t.Dogma))
+        {
+            try
+            {
+                using var doc = await _esi.GetJson($"/universe/types/{id}/", null, ct);
+                Cache.Types[id].Slots = ReadSlots(doc.RootElement);
+                Cache.Types[id].Dogma = true;
+            }
+            catch { /* retried on the next sync */ }
         }
     }
 
