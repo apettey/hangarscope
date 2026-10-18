@@ -91,7 +91,8 @@ are never skipped.
    (minor if the PR adds a what's-new entry, otherwise patch, unless a `semver:*` label says otherwise). Merge with a
    merge commit. The Release workflow on `master` then tests, builds and packs that version and only then tags it
    and publishes the GitHub Release with notes from the release log. Check the run is green and the release has the
-   zip and Velopack packages; if it failed, fix forward (re-run it, or merge a fix, which releases the next patch).
+   zip and Velopack packages; if it failed, re-run it on `master` (a tag left without a release is finished, not
+   skipped) or merge a fix, which releases the next version.
    Details: [references/versioning-and-release.md](references/versioning-and-release.md).
 
 Copy-paste checklist for the PR or your notes: [references/checklist.md](references/checklist.md).
@@ -105,7 +106,8 @@ Copy-paste checklist for the PR or your notes: [references/checklist.md](referen
 - The what's-new entry is added after the review loop, so it gets its own review round before merge.
 - PR image links are pinned to a **commit SHA**.
 - A release only counts once the Release run has **published** its artefacts. The tag is created after the build,
-  so a failed build leaves no tag: re-run the workflow or merge a fix.
+  so a failed build leaves no tag; if publishing fails after the tag push, re-running the workflow on `master`
+  finishes that same version.
 - `deploy:manual` can't hold a release (merging publishes it right away and installed apps auto-update): finish the
   outside work **before merging**.
 - Anything that writes to the game (saving or deleting in-game fittings) needs an explicit button plus an in-UI

@@ -1,9 +1,10 @@
-# Every push to master is a release (AGENTS.md rule 5: no skip).
+# Every push to master is released (AGENTS.md rule 5: no skip).
 #
-# 1. version: works out the next version with scripts/release_version.py from everything
-#    merged since the latest v* tag (labels of the merged PRs, then a new
-#    docs/whats-new/features.json entry, else patch) and builds the release notes from the
-#    docs/changelog entries added since then.
+# 1. version: works out the next version with scripts/release_version.py. Each merge since
+#    the latest v* tag gets its own bump (its PR's semver:* labels, else a new
+#    docs/whats-new/features.json entry, else patch) and the biggest one wins, so merges that
+#    queued up behind a running release are released together without losing a feature bump.
+#    Release notes come from the docs/changelog entries added since the tag.
 # 2. build: the shared apettey/eve-contracts build-windows-app.yml runs HangarScope.Tests,
 #    publishes win-x64, packs Velopack, and only after all of that succeeds creates the
 #    vX.Y.Z tag on the built commit and publishes the GitHub Release. Installed apps
@@ -11,7 +12,8 @@
 #
 # A pushed v* tag (manual fallback: scripts/release.ps1) still builds and publishes that tag
 # the old way; the master push that release.ps1 makes alongside it is skipped because its
-# commit is already tagged.
+# commit is already tagged and released. A tag left without a release (publishing failed after
+# the tag was pushed) is finished by re-running this workflow on master.
 name: Release
 
 on:
@@ -20,11 +22,12 @@ on:
     tags: ["v*"]
   workflow_dispatch: # on master: retry a failed release
 
-# One release at a time, never cancelled half-way. If several merges queue up, GitHub keeps
-# only the newest pending run; it still covers the skipped merges because the bump and notes
-# span everything since the latest tag (biggest bump wins).
+# One master release at a time, never cancelled half-way. If several merges queue up, GitHub
+# keeps only the newest pending run; it still covers the dropped ones because the bump and notes
+# span every merge since the latest tag. Tag pushes (manual fallback) get their own group so a
+# master push can't replace a queued tag build.
 concurrency:
-  group: release
+  group: ${{ github.ref_type == 'tag' && format('release-{0}', github.ref_name) || 'release' }}
   cancel-in-progress: false
 
 permissions:
@@ -56,40 +59,65 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if [ -n "$(git tag --points-at HEAD --list 'v*')" ]; then
-            echo "HEAD is already tagged ($(git tag --points-at HEAD --list 'v*' | paste -sd' ' -)) - nothing to release."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          tags=$RUNNER_TEMP/tags.txt
+          git tag --list 'v*' > "$tags"
+          head_tag=$(git tag --points-at HEAD --list 'v*' | python3 scripts/release_version.py latest-tag)
+          resume=""
+          if [ -n "$head_tag" ]; then
+            if gh release view "$head_tag" --repo "$REPO" > /dev/null 2>&1; then
+              echo "HEAD is already released as $head_tag - nothing to do."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            # Tagged but never released (publishing failed after the tag push): finish that release.
+            resume=$head_tag
+            git tag --points-at HEAD --list 'v*' > "$RUNNER_TEMP/head-tags.txt"
+            grep -vxF -f "$RUNNER_TEMP/head-tags.txt" "$tags" > "$tags.new" || true
+            mv "$tags.new" "$tags"
           fi
-          latest=$(git tag --list 'v*' | python3 scripts/release_version.py latest-tag)
+          latest=$(python3 scripts/release_version.py latest-tag < "$tags")
           range=${latest:+$latest..}HEAD
           echo "LATEST=$latest" >> "$GITHUB_ENV"
 
           if [ -n "$latest" ]; then
-            git diff --name-only "$latest" HEAD > "$RUNNER_TEMP/changed.txt"
             git diff --name-only --diff-filter=A "$latest" HEAD > "$RUNNER_TEMP/added.txt"
             git show "$latest:docs/whats-new/features.json" > "$RUNNER_TEMP/features-before.json" 2>/dev/null || true
           else
-            git ls-files > "$RUNNER_TEMP/changed.txt"
-            cp "$RUNNER_TEMP/changed.txt" "$RUNNER_TEMP/added.txt"
+            git ls-files > "$RUNNER_TEMP/added.txt"
           fi
           git log --format=%s --no-merges "$range" > "$RUNNER_TEMP/commits.txt"
 
-          # Labels of every PR merged into master since the latest tag (first-parent commits).
-          : > "$RUNNER_TEMP/labels.txt"
-          for sha in $(git rev-list --first-parent "$range"); do
-            gh api "repos/$REPO/commits/$sha/pulls" \
-              --jq ".[] | select(.merge_commit_sha == \"$sha\") | .labels[].name" >> "$RUNNER_TEMP/labels.txt"
-          done
-          labels=$(sort -u "$RUNNER_TEMP/labels.txt" | paste -sd, -)
-          echo "PR labels: ${labels:-none}"
+          if [ -n "$resume" ]; then
+            { echo "bump=resume"; echo "version=${resume#v}"; echo "reason=finishing $resume, tagged but not released"; } | tee -a "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
-          python3 scripts/release_version.py bump \
-            --latest-tag "$latest" \
-            --changed-paths-file "$RUNNER_TEMP/changed.txt" \
-            --labels "$labels" \
-            --features-before "$RUNNER_TEMP/features-before.json" \
-            --features-after docs/whats-new/features.json | tee -a "$GITHUB_OUTPUT"
+          # One decision per merge into master (first-parent commits): its own diff, features.json
+          # before/after and PR labels. Direct pushes have no PR, so no labels.
+          d=$RUNNER_TEMP/merge
+          : > "$RUNNER_TEMP/decisions.txt"
+          for sha in $(git rev-list --first-parent "$range"); do
+            : > "$d-before.json"; : > "$d-after.json"
+            if parent=$(git rev-parse -q --verify "$sha^1"); then
+              git diff --name-only "$parent" "$sha" > "$d-changed.txt"
+              git show "$parent:docs/whats-new/features.json" > "$d-before.json" 2>/dev/null || true
+            else
+              git ls-tree -r --name-only "$sha" > "$d-changed.txt"
+            fi
+            git show "$sha:docs/whats-new/features.json" > "$d-after.json" 2>/dev/null || true
+            labels=$(gh api "repos/$REPO/commits/$sha/pulls" \
+              --jq ".[] | select(.merge_commit_sha == \"$sha\") | .labels[].name" | paste -sd, -)
+            python3 scripts/release_version.py bump \
+              --changed-paths-file "$d-changed.txt" --labels "$labels" \
+              --features-before "$d-before.json" --features-after "$d-after.json" > "$d-result.txt"
+            bump=$(sed -n 's/^bump=//p' "$d-result.txt")
+            reason=$(sed -n 's/^reason=//p' "$d-result.txt")
+            echo "$(git log -1 --format='%h %s' "$sha"): $bump ($reason; labels: ${labels:-none})"
+            echo "$bump $reason" >> "$RUNNER_TEMP/decisions.txt"
+          done
+
+          python3 scripts/release_version.py combine \
+            --latest-tag "$latest" --decisions-file "$RUNNER_TEMP/decisions.txt" | tee -a "$GITHUB_OUTPUT"
 
       - name: Release notes
         id: notes

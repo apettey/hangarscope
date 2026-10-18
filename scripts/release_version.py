@@ -6,6 +6,7 @@ rules live in one tested place (tests: scripts/tests/test_release_version.py):
 
   latest-tag          read git tags on stdin, print the highest vX.Y.Z (empty if none)
   bump                work out the next version from the latest tag, changed paths and PR labels
+  combine             one version for several merges: the biggest of their per-merge bumps
   notes               build GitHub Release notes from new docs/changelog entries and what's-new entries
   validate-features   check docs/whats-new/features.json (valid JSON, required fields, unique pr)
 
@@ -109,6 +110,26 @@ def decide_bump(
 
     version = ".".join(str(n) for n in apply_bump(base, bump))
     return {"bump": bump, "version": version, "reason": reason}
+
+
+def combine_bumps(latest: str, decisions: list[tuple[str, str]]) -> dict[str, str]:
+    """One release covering several merges (they queued up behind a running release).
+
+    decisions are each merge's own (bump, reason) from decide_bump, so a semver:patch label on one PR
+    can't downgrade another PR's new feature. The biggest bump wins; no merges still means a patch.
+    """
+    base = parse_tag(latest) if latest else (0, 0, 0)
+    if base is None:
+        raise ValueError(f"latest tag '{latest}' is not vX.Y.Z")
+    if not decisions:
+        decisions = [("patch", "no merges since the latest tag")]
+    for bump, _ in decisions:
+        if bump not in BUMPS:
+            raise ValueError(f"unknown bump '{bump}'")
+    bump = max((d[0] for d in decisions), key=BUMPS.index)
+    reasons = list(dict.fromkeys(r for b, r in decisions if b == bump))
+    version = ".".join(str(n) for n in apply_bump(base, bump))
+    return {"bump": bump, "version": version, "reason": "; ".join(reasons)}
 
 
 # ---- features.json ----
@@ -262,6 +283,11 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--features-before", help="features.json at the latest tag (missing file = no entries)")
     b.add_argument("--features-after", help="features.json at the new head")
 
+    c = sub.add_parser("combine", help="print bump=, version=, reason= for several merges")
+    c.add_argument("--latest-tag", default="")
+    c.add_argument("--decisions-file", required=True,
+                   help="one merge per line: '<bump> <reason>' (the bump= and reason= of its own bump run)")
+
     n = sub.add_parser("notes", help="print release notes markdown")
     n.add_argument("--version", required=True)
     n.add_argument("--added-paths-file", help="file with one added path per line")
@@ -289,6 +315,13 @@ def main(argv: list[str] | None = None) -> int:
             _read_optional(args.features_before),
             _read_optional(args.features_after),
         )
+        for k in ("bump", "version", "reason"):
+            print(f"{k}={result[k]}")
+        return 0
+
+    if args.cmd == "combine":
+        decisions = [tuple((l.split(" ", 1) + [""])[:2]) for l in _read_lines(args.decisions_file)]
+        result = combine_bumps(args.latest_tag, decisions)
         for k in ("bump", "version", "reason"):
             print(f"{k}={result[k]}")
         return 0

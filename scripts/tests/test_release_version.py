@@ -91,6 +91,26 @@ class BumpTests(unittest.TestCase):
         self.assertEqual(rv.decide_bump("v1.0.0", [FEATURES], [], features(1), "{oops")["bump"], "patch")
 
 
+class CombineTests(unittest.TestCase):
+    def test_patch_label_on_one_pr_does_not_hide_another_prs_feature(self):
+        a = rv.decide_bump("v1.2.0", ["README.md"], ["semver:patch"])
+        b = rv.decide_bump("v1.2.0", [FEATURES], [], features(14), features(15, 14))
+        r = rv.combine_bumps("v1.2.0", [(a["bump"], a["reason"]), (b["bump"], b["reason"])])
+        self.assertEqual((r["bump"], r["version"]), ("minor", "1.3.0"))
+        self.assertIn("#15", r["reason"])
+
+    def test_biggest_wins_and_reasons_deduplicated(self):
+        r = rv.combine_bumps("v1.2.3", [("patch", "x"), ("major", "label semver:major"), ("major", "label semver:major")])
+        self.assertEqual((r["version"], r["reason"]), ("2.0.0", "label semver:major"))
+
+    def test_no_merges_is_patch(self):
+        self.assertEqual(rv.combine_bumps("v1.2.3", [])["version"], "1.2.4")
+
+    def test_unknown_bump_raises(self):
+        with self.assertRaises(ValueError):
+            rv.combine_bumps("v1.2.3", [("huge", "?")])
+
+
 class ValidateFeaturesTests(unittest.TestCase):
     def entry(self, **overrides):
         e = {"pr": 15, "date": "2026-10-18", "title": "T", "description": "D"}
@@ -223,6 +243,13 @@ class CliTests(unittest.TestCase):
             _, out = self.run_cli("bump", "--latest-tag", "v1.2.0", "--changed-paths-file", str(paths),
                                   "--features-before", str(Path(d) / "missing.json"), "--features-after", str(after))
         self.assertIn("bump=minor", out)
+
+    def test_combine_reads_decisions_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "decisions.txt"
+            f.write_text("patch label semver:patch\nminor new what's-new entry for PR #15\n", encoding="utf-8")
+            code, out = self.run_cli("combine", "--latest-tag", "v1.2.0", "--decisions-file", str(f))
+        self.assertEqual((code, out), (0, "bump=minor\nversion=1.3.0\nreason=new what's-new entry for PR #15\n"))
 
     def test_labels_comma_separated(self):
         self.assertEqual(rv._labels("semver:patch, semver:major"), ["semver:patch", " semver:major"])

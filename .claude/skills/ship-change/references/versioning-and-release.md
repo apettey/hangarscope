@@ -25,10 +25,11 @@ There is no skip. Every merge to `master` is in a released version, every versio
 Automatic on every push to `master` (`.github/workflows/release.yml`):
 
 1. Merge the PR with a merge commit.
-2. The `version` job runs the release script's tests, then `scripts/release_version.py bump` over everything since
-   the latest `v*` tag: the labels of every PR merged since then (first-parent merge commits), the changed paths, and
-   `features.json` at the tag vs. now (only an entry with a **new** `pr` counts as a feature). It prints
-   `bump`, `version` and `reason`. `release_version.py notes` builds the release notes from the
+2. The `version` job runs the release script's tests, then `scripts/release_version.py bump` once per merge since
+   the latest `v*` tag (first-parent commits): that merge's PR labels, its changed paths, and `features.json` before
+   and after it (only an entry with a **new** `pr` counts as a feature). `release_version.py combine` takes the
+   biggest of those bumps, so one PR's `semver:patch` can't downgrade another PR's feature, and prints `bump`,
+   `version` and `reason`. `release_version.py notes` builds the release notes from the
    `docs/changelog/*/README.md` entries added since the tag (headings nested, relative links pinned to the
    commit), with new what's-new entries on top; with no entry (e.g. Dependabot) it lists the commit subjects.
 3. The `build` job calls the shared `apettey/eve-contracts/.github/workflows/build-windows-app.yml` with
@@ -39,8 +40,10 @@ Automatic on every push to `master` (`.github/workflows/release.yml`):
    latest release. That is the deploy.
 
 Releases run one at a time (`concurrency: release`). If merges queue up, GitHub drops the middle pending runs, but
-the next run still covers them: the bump spans everything since the latest tag, so the biggest bump wins and the
-notes list every entry. A push whose commit is already tagged is skipped.
+the next run still covers them: it decides per merge since the latest tag, the biggest bump wins and the notes list
+every entry. A push whose commit is already tagged **and** released is skipped. If publishing failed after the tag
+was pushed, the tag has no release: re-run the workflow on `master` and it finishes that version on the same commit
+(the shared workflow reuses a tag that points at the commit being built and has no release).
 
 `<Version>` in `HangarScope.csproj` is only the local-build default; the latest tag is the version of record.
 
