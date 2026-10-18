@@ -1,7 +1,7 @@
 # Pull request gate (Dependabot's included). Merging to master releases straight away
 # (release.yml), so this proves the PR is releasable:
-# - release: the release script's tests, docs/whats-new/features.json validation, and the
-#   version this PR would release (job summary)
+# - release: docs/whats-new/features.json validation and the version this PR would release (job
+#   summary), both with the shared actions from apettey/eve-contracts
 # - build: build, HangarScope.Tests and the win-x64 release publish
 name: CI
 
@@ -21,58 +21,39 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # the preview looks up unreleased merges' labels; a failed lookup fails it
     outputs:
-      version: ${{ steps.bump.outputs.version }}
+      version: ${{ steps.preview.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # tags and the merge base
 
-      - name: Release script tests
-        run: python3 -m unittest discover -s scripts/tests -v
-
+      # The shared validator from apettey/eve-contracts. Image paths are relative to docs/whats-new.
       - name: Validate features.json
-        run: python3 scripts/release_version.py validate-features docs/whats-new/features.json
+        uses: apettey/eve-contracts/.github/actions/validate-features@main
+        with:
+          path: docs/whats-new/features.json
+          images-root: docs/whats-new
+          image-prefix: img/
+          base: ${{ github.event.pull_request.base.sha }}
+          pr: ${{ github.event.pull_request.number }}
 
+      # The shared next-version action in PR mode: the same code as the release run, so the
+      # prediction matches what merging releases (job summary: "Merging this PR would release vX.Y.Z").
       - name: Predict version
-        id: bump
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
-        run: |
-          set -euo pipefail
-          latest=$(git tag --list 'v*' | python3 scripts/release_version.py latest-tag)
-          base=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
-          git diff --name-only "$base" "$HEAD_SHA" > "$RUNNER_TEMP/changed.txt"
-          git show "$base:docs/whats-new/features.json" > "$RUNNER_TEMP/features-before.json" 2>/dev/null || true
-          git show "$HEAD_SHA:docs/whats-new/features.json" > "$RUNNER_TEMP/features-after.json" 2>/dev/null || true
-          python3 scripts/release_version.py bump \
-            --latest-tag "$latest" \
-            --changed-paths-file "$RUNNER_TEMP/changed.txt" \
-            --labels "$LABELS" \
-            --features-before "$RUNNER_TEMP/features-before.json" \
-            --features-after "$RUNNER_TEMP/features-after.json" | tee -a "$GITHUB_OUTPUT"
-          echo "LATEST=$latest" >> "$GITHUB_ENV"
-
-      - name: Summary
-        env:
-          VERSION: ${{ steps.bump.outputs.version }}
-          BUMP: ${{ steps.bump.outputs.bump }}
-          REASON: ${{ steps.bump.outputs.reason }}
-          PRERELEASE: ${{ steps.bump.outputs.prerelease }}
-        run: |
-          {
-            echo "### Merging this PR would release v$VERSION"
-            echo
-            echo "**$BUMP** bump from ${LATEST:-no tag}: $REASON. Add a \`semver:major|minor|patch\` label to override."
-            echo "If other PRs merge first, the version moves up accordingly."
-            if [ "$PRERELEASE" = "true" ]; then
-              echo
-              echo "\`deploy:manual\`: published as a **prerelease**; installed copies don't update to it until it is"
-              echo "promoted with \`gh release edit v$VERSION --prerelease=false\`."
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+        id: preview
+        uses: apettey/eve-contracts/.github/actions/next-version@main
+        with:
+          mode: pr
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          labels: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          features-path: docs/whats-new/features.json
+          changelog-dir: docs/changelog
+          app-name: HangarScope
 
   build:
     needs: release
@@ -89,13 +70,6 @@ jobs:
 
       - name: Test
         run: dotnet test HangarScope.slnx -c Release --nologo
-
-      # The manual fallback scripts/release.ps1 must find HangarScope.Tests.
-      - name: release.ps1 finds the test projects
-        run: |
-          $found = @(./scripts/release.ps1 -ListTests)
-          $found
-          if ($found -notcontains 'HangarScope.Tests\HangarScope.Tests.csproj') { throw 'release.ps1 does not find HangarScope.Tests' }
 
       # The same publish the release build runs (shared build-windows-app.yml), with the
       # version this PR would release.

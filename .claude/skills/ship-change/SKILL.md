@@ -40,8 +40,8 @@ repo-specific review rules in [references/review-loop.md](references/review-loop
 | Release log | `docs/changelog/` (index `README.md`, template `TEMPLATE.md`) |
 | What's new | `docs/whats-new/features.json` · images `docs/whats-new/img/` |
 | Feature docs | `README.md`, `docs/FEATURES.md`, `docs/screenshots/` (kebab-case PNGs) |
-| Version source | `<Version>` in `HangarScope/HangarScope.csproj` |
-| Release | `.github/workflows/release.yml` on every push to `master`: version from `scripts/release_version.py` (tests in `scripts/tests/`), build + pack via the shared `apettey/eve-contracts` workflow, then tag + GitHub Release. `scripts/release.ps1` is a manual fallback only |
+| Version source | `vX.Y.Z` tags, computed on merge by the shared `apettey/eve-contracts` `next-version` action (the same code as eve-contracts and multi-box; tests live there). `<Version>` in `HangarScope/HangarScope.csproj` is only the local-build default |
+| Release | `.github/workflows/release.yml` on every push to `master`: version from the shared `next-version` action, build + pack via the shared `apettey/eve-contracts` workflow, then tag + GitHub Release, then notes via the shared `finalize-release` action. Manual run: `gh workflow run release.yml --ref master` |
 | Deploy target | GitHub Release with the Velopack installer + delta packages; installed apps auto-update from it |
 | Repo / PR URLs | `apettey/hangarscope` |
 
@@ -93,9 +93,9 @@ are never skipped.
    merge commit. The Release workflow on `master` then tests, builds and packs that version and only then tags it
    and publishes the GitHub Release (a prerelease with `deploy:manual`), then sets its notes from the release log.
    Check the run is green and the release has the zip and Velopack packages. If it failed, re-run the failed jobs
-   (safe while no newer version is out: the tag on this commit is reused and published packages aren't uploaded
-   again) or merge a fix; if a tag is left without a complete release, run the Release workflow by hand on `master`
-   (Actions → Release → Run workflow), which finishes that version ("Re-run all jobs" doesn't). For `deploy:manual`, promote the prerelease once the outside work is done:
+   (the tag on this commit is reused, published packages aren't uploaded again, and the shared build refuses a
+   stale version once a newer one is out) or merge a fix; to repeat a release run, run the Release workflow by hand
+   on `master` (Actions → Release → Run workflow). For `deploy:manual`, promote the prerelease once the outside work is done:
    `gh release edit vX.Y.Z --prerelease=false`.
    Details: [references/versioning-and-release.md](references/versioning-and-release.md).
 
@@ -111,7 +111,8 @@ Copy-paste checklist for the PR or your notes: [references/checklist.md](referen
 - PR image links are pinned to a **commit SHA**.
 - A release only counts once the Release run has **published** its artefacts. The tag is created after the build,
   so a failed build leaves no tag (a publish that fails before any Release is out removes the tag again); a tag left
-  without a complete release is finished by running the workflow by hand (`workflow_dispatch`) on `master`.
+  without a published release is built again by the next run on that commit (re-run, or `workflow_dispatch` on
+  `master`).
 - `deploy:manual` publishes a **prerelease**: installed copies (`prerelease: false` in `UpdateChecker`) ignore it
   until `gh release edit vX.Y.Z --prerelease=false`. A later merge without the label is a normal release that
   includes the held change, so merge nothing else until it is promoted (or label those PRs too).
