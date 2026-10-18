@@ -69,13 +69,13 @@ Re-runs and manual runs:
   publishes it; if it is, only `finalize` runs (notes rewritten, state checked). The labels' prerelease decision
   only applies when the run creates the Release; an existing one keeps its state.
 - A run (or re-run of all jobs) on a commit that is already in a later tag does nothing.
-- `finalize` fails if the Release is still a draft or lacks the zip or the `*-full.nupkg`. A draft: publish it with
-  `gh release edit vX.Y.Z --draft=false` if it has every file, otherwise delete the draft and run the workflow by
-  hand on `master`. A published Release without the zip has shipped; attach the zip by hand with `gh release upload vX.Y.Z <zip>`. Take it from the build
-  run's artifacts (kept 7 days). After that, rebuild it from the tag: `git checkout vX.Y.Z`, then `dotnet publish
-  HangarScope/HangarScope.csproj -c Release -r win-x64 --self-contained true -p:Version=X.Y.Z -o publish`, and zip
-  the folder's contents as `HangarScope-X.Y.Z-win-x64.zip`. Until the zip is attached, every run's `finalize` on that
-  commit fails.
+- `finalize` fails if the Release is still a draft or lacks the zip or the `*-full.nupkg`. A draft: publish it with `gh
+  release edit vX.Y.Z --draft=false` if it has every file, otherwise delete the draft and run the workflow by hand on
+  `master`. A published Release without the zip has shipped; attach the zip by hand with `gh release upload vX.Y.Z
+  <zip>`. Take it from the build run's artifacts (kept 7 days). After that, rebuild it from the tag: `git checkout
+  vX.Y.Z`, then `dotnet publish HangarScope/HangarScope.csproj -c Release -r win-x64 --self-contained true
+  -p:Version=X.Y.Z -o publish`, and zip the folder's contents as `HangarScope-X.Y.Z-win-x64.zip`. Until the zip is
+  attached, every run's `finalize` on that commit fails.
 - `workflow_dispatch` only releases from `master`; on any other branch it does nothing. It is also the manual
   fallback if a run needs repeating: there is no separate release script any more.
 
