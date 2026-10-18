@@ -50,21 +50,15 @@ public sealed record ListRowVm(string Name, string Sub, string Sub2, IBrush Sub2
 
 public sealed record SavedPlanVm(string Name, string SubText, ICommand Load, ICommand Delete);
 
-/// <summary>One fit in the FITTINGS library: identical fits on several pilots (matched by content hash) are one row.</summary>
-public sealed class FitLibVm : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+/// <summary>One character in the SYNC TO picker: checkbox, color dot, name and its state for the fit.</summary>
+public sealed record FitSyncPilotVm(string Name, IBrush Color, string StateText, IBrush StateBrush, string Hint,
+    bool CanSelect, bool Selected, ICommand Toggle)
 {
-    public required string Name { get; init; }
-    public required string HullName { get; init; }
-    public required string ModulesText { get; init; }
-    public required List<PilotDotVm> Pilots { get; init; }
-    public required string SavedOnText { get; init; }
-    public required string MissingText { get; init; }
-    public required ICommand Use { get; init; }
-    public required ICommand AskPush { get; init; }
-    public required ICommand AskDelete { get; init; }
-    public bool CanPush { get; init; }
-    public bool HasMissing => MissingText.Length > 0;
+    public bool HasHint => Hint.Length > 0;
 }
+
+/// <summary>Outcome of a confirmed sync on one character.</summary>
+public sealed record FitSyncResultVm(string Name, IBrush Color, string Text, IBrush Brush);
 
 /// <summary>A labelled command for menu-style lists (e.g. COPY SHIP ▾).</summary>
 public sealed record ActionVm(string Label, string Sub, ICommand Go);

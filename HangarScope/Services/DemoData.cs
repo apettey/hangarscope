@@ -110,10 +110,16 @@ public static class DemoData
         {
             new() { FittingId = 1, CharId = K, Name = "Crater Paladin · Doctrine v2", ShipTypeId = Paladin, Items = Doctrine().ToList() },
             new() { FittingId = 2, CharId = M, Name = "Crater Paladin · Doctrine v2", ShipTypeId = Paladin, Items = Doctrine().ToList() },
-            new() { FittingId = 3, CharId = K, Name = "Paladin · Blitz C5", ShipTypeId = Paladin, Items = Blitz().ToList() },
+            new() { FittingId = 7, CharId = K, Name = "Paladin · Blitz C5", ShipTypeId = Paladin, Items = Blitz().ToList() },
             new() { FittingId = 4, CharId = R, Name = "Ishtar · Sentry anoms", ShipTypeId = Ishtar, Items = Sentry().ToList() },
             new() { FittingId = 5, CharId = K, Name = "Ishtar · Sentry anoms", ShipTypeId = Ishtar, Items = Sentry().ToList() },
             new() { FittingId = 6, CharId = M, Name = "Ishtar · Sentry", ShipTypeId = Ishtar, Items = Sentry().ToList() },
+            // an older revision under the same name: the FITTINGS library shows it as outdated next to Keldan's copy
+            new() { FittingId = 3, CharId = M, Name = "Paladin · Blitz C5", ShipTypeId = Paladin, Items = BlitzV1().ToList() },
+            // a duplicate under another name (TIDY DUPLICATES) and variants that differ only in cargo or drones
+            new() { FittingId = 8, CharId = K, Name = "Doctrine v2 (backup)", ShipTypeId = Paladin, Items = Doctrine().ToList() },
+            new() { FittingId = 9, CharId = R, Name = "Crater Paladin · Doctrine v2 hauler", ShipTypeId = Paladin, Items = Doctrine().Select(i => i.TypeId == Imf ? new FitItem { TypeId = Imf, Flag = "Cargo", Qty = 40 } : i).ToList() },
+            new() { FittingId = 10, CharId = M, Name = "Ishtar · Sentry hammers", ShipTypeId = Ishtar, Items = Sentry().Select(i => i.TypeId == Hob ? new FitItem { TypeId = Ham, Flag = "DroneBay", Qty = 5 } : i).ToList() },
         };
 
         var year = DateTimeOffset.UtcNow.Year;
@@ -200,6 +206,12 @@ public static class DemoData
         (Mjd, "MedSlot", 1), (Tc, "MedSlot", 2), (Sb, "MedSlot", 1),
         (Hs, "LoSlot", 4), (Te, "LoSlot", 2), (Dda, "LoSlot", 1),
         (Elc, "RigSlot", 2), (Ham, "DroneBay", 5));
+
+    private static FitItem[] BlitzV1() => Items(
+        (Mpl, "HiSlot", 4), (Bast, "HiSlot", 1), (Dla, "HiSlot", 1),
+        (Mjd, "MedSlot", 1), (Tc, "MedSlot", 2), (Sb, "MedSlot", 1),
+        (Hs, "LoSlot", 3), (Te, "LoSlot", 3), (Dda, "LoSlot", 1),
+        (Ecr, "RigSlot", 2), (Hob, "DroneBay", 5));
 
     private static FitItem[] Sentry() => Items(
         (Dla, "HiSlot", 2), (Tc, "MedSlot", 2), (Dda, "LoSlot", 3), (Lar, "LoSlot", 1), (Hob, "DroneBay", 5));

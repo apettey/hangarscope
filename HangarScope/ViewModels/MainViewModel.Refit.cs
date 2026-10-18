@@ -23,6 +23,30 @@ public sealed partial class MainViewModel
     private Snapshot? _stockSnap;
     private List<StockStack> _stock = new();
     private Func<Task>? _pendingWrite;
+    private Snapshot? _catalogSnap;
+    private HashSet<long> _catalogHulls = new();
+    private FitPickerVm? _fitPicker;
+
+    /// <summary>The fit picker shared by the IN-GAME FIT ▾ flyout and the FITTINGS library.</summary>
+    public FitPickerVm FitPicker => _fitPicker ??= new FitPickerVm
+    {
+        OnUse = g =>
+        {
+            SetTarget(g.ShipTypeId, g.Name, RefitPlanner.ToLines(g.Items, _snap.Types));
+            ShowPlan();
+            RefitStatusText = $"TARGET · “{g.Name.ToUpperInvariant()}”";
+        },
+        OnSyncTo = g => OpenFitSync(new SavedFitting { Name = g.Name, ShipTypeId = g.ShipTypeId, Items = g.Items, Description = g.Copies[0].Description }),
+        OnTidy = OpenTidy,
+        OnDelete = g =>
+        {
+            var chars = _snap.Characters.ToDictionary(c => c.Id);
+            AskWrite($"DELETE FITTING “{g.Name}” IN GAME · {g.Copies.Count} COP{(g.Copies.Count == 1 ? "Y" : "IES")} ON " +
+                     string.Join(", ", g.Copies.GroupBy(c => c.CharId).Select(x => (chars.TryGetValue(x.Key, out var c) ? c.Name : $"Character {x.Key}") + (x.Count() > 1 ? $" ×{x.Count()}" : ""))).ToUpperInvariant() +
+                     " · THIS CANNOT BE UNDONE",
+                () => DeleteFits(g.Copies.ToList()));
+        },
+    };
 
     /// <summary>Set by RefitView: puts text on the system clipboard.</summary>
     public Func<string, Task>? CopyToClipboard { get; set; }
@@ -32,8 +56,6 @@ public sealed partial class MainViewModel
     [ObservableProperty] private bool _refitFittingsMode;
     [ObservableProperty] private List<RefitShipVm> _refitShips = new();
     [ObservableProperty] private string _refitShipsHeader = "SHIPS";
-    [ObservableProperty] private List<FitLibVm> _fitLibrary = new();
-    [ObservableProperty] private string _fitLibraryHeader = "";
     [ObservableProperty] private List<ActionVm> _copyShipOptions = new();
     [ObservableProperty] private string _targetTitle = "";
     [ObservableProperty] private string _targetSub = "";
@@ -181,15 +203,8 @@ public sealed partial class MainViewModel
     {
         var hull = TargetHull();
         if (hull == 0 || _refitTarget.Lines.Count == 0) { RefitStatusText = "SET A TARGET FIT FIRST"; return; }
-        var items = RefitPlanner.ToFitItems(_refitTarget.Lines);
-        var hash = FitMath.Hash(hull, items);
-        var have = _snap.Fittings.Where(f => FitMath.Hash(f.ShipTypeId, f.Items) == hash).Select(f => f.CharId).ToHashSet();
-        var missing = _snap.Characters.Where(c => !have.Contains(c.Id)).ToList();
-        if (missing.Count == 0) { RefitStatusText = "EVERY PILOT ALREADY HAS THIS FIT"; return; }
-        var name = string.IsNullOrWhiteSpace(_refitTarget.Name) ? _typeName(hull) + " refit" : _refitTarget.Name;
-        AskWrite($"SAVE FITTING “{name}” ({_typeName(hull)}, {items.Count} ITEMS) IN GAME FOR {missing.Count} PILOT{(missing.Count == 1 ? "" : "S")}: " +
-                 string.Join(", ", missing.Select(c => c.Name)).ToUpperInvariant(),
-            () => WriteFitting(missing.Select(c => c.Id).ToList(), new SavedFitting { Name = name, ShipTypeId = hull, Items = items }));
+        var name = string.IsNullOrWhiteSpace(_refitTarget.Name) ? _typeName(hull) + " refit" : _refitTarget.Name.Trim();
+        OpenFitSync(new SavedFitting { Name = name, ShipTypeId = hull, Items = RefitPlanner.ToFitItems(_refitTarget.Lines) });
     }
 
     [RelayCommand]
@@ -224,18 +239,10 @@ public sealed partial class MainViewModel
             RefitStatusText = "DEMO DATA · LINK A CHARACTER TO WRITE IN-GAME FITTINGS";
             return;
         }
+        IsFitSyncOpen = false;
         _pendingWrite = write;
         PendingWriteText = text;
         HasPendingWrite = true;
-    }
-
-    private async Task WriteFitting(List<long> charIds, SavedFitting fit)
-    {
-        RefitStatusText = "SAVING FITTING…";
-        var results = await _sync.SaveFitting(charIds, fit);
-        var ok = results.Count(r => r.ok);
-        var failed = results.Where(r => !r.ok).Select(r => r.message).ToList();
-        RefitStatusText = $"SAVED ON {ok} OF {results.Count} PILOTS" + (failed.Count > 0 ? " · " + string.Join(" · ", failed).ToUpperInvariant() : "");
     }
 
     private async Task DeleteFits(List<SavedFitting> fits)
@@ -412,43 +419,16 @@ public sealed partial class MainViewModel
         if (pilotIdx != _newHullPilotIndex) { _loadingUi = true; NewHullPilotIndex = pilotIdx; _loadingUi = false; }
         NewHullsText = _newHulls.ToString();
 
-        // ---- fittings library (identical fits on several pilots are one row)
-        var fitGroups = snap.Fittings.GroupBy(f => FitMath.Hash(f.ShipTypeId, f.Items)).ToList();
-        FitLibrary = fitGroups
-            .Select(g => (g, first: g.First()))
-            .Where(x => q.Length == 0 || x.first.Name.ToLowerInvariant().Contains(q) || tn(x.first.ShipTypeId).ToLowerInvariant().Contains(q))
-            .OrderBy(x => tn(x.first.ShipTypeId)).ThenBy(x => x.first.Name)
-            .Select(x =>
-            {
-                var have = x.g.Select(f => f.CharId).ToHashSet();
-                var missing = snap.Characters.Where(c => !have.Contains(c.Id)).ToList();
-                var names = x.g.Select(f => f.Name).Distinct().ToList();
-                var fit = x.first;
-                var mods = fit.Items.Where(i => FitMath.SlotGroup(i.Flag) is "HIGH" or "MED" or "LOW" or "RIG" or "SUBSYSTEM").Sum(i => i.Qty);
-                return new FitLibVm
-                {
-                    Name = names[0] + (names.Count > 1 ? $" (+{names.Count - 1} NAMES)" : ""),
-                    HullName = tn(fit.ShipTypeId),
-                    ModulesText = $"{mods} MODULES · {fit.Items.Count} LINES",
-                    Pilots = snap.Characters.Select(c => new PilotDotVm(c.Name, B(c.Color), have.Contains(c.Id))).ToList(),
-                    SavedOnText = have.Count == 1 ? $"SAVED ON {CharName(have.First()).ToUpperInvariant()} ONLY" : $"SAVED ON {have.Count} OF {snap.Characters.Count} PILOTS",
-                    MissingText = missing.Count > 0 ? $"MISSING ON {missing.Count} PILOT{(missing.Count == 1 ? "" : "S")}" : "",
-                    CanPush = missing.Count > 0,
-                    Use = new RelayCommand(() => { SetTarget(fit.ShipTypeId, fit.Name, RefitPlanner.ToLines(fit.Items, snap.Types)); ShowPlan(); }),
-                    AskPush = new RelayCommand(() =>
-                    {
-                        if (missing.Count == 0) return;
-                        AskWrite($"SAVE FITTING “{fit.Name}” IN GAME FOR {missing.Count} PILOT{(missing.Count == 1 ? "" : "S")}: " +
-                                 string.Join(", ", missing.Select(c => c.Name)).ToUpperInvariant(),
-                            () => WriteFitting(missing.Select(c => c.Id).ToList(), fit));
-                    }),
-                    AskDelete = new RelayCommand(() =>
-                        AskWrite($"DELETE FITTING “{fit.Name}” IN GAME FROM {x.g.Count()} PILOT{(x.g.Count() == 1 ? "" : "S")}: " +
-                                 string.Join(", ", x.g.Select(f => CharName(f.CharId))).ToUpperInvariant() + " · THIS CANNOT BE UNDONE",
-                            () => DeleteFits(x.g.ToList()))),
-                };
-            }).ToList();
-        FitLibraryHeader = $"IN-GAME FITTINGS · {fitGroups.Count} FITS · {snap.Fittings.Count} COPIES ACROSS {snap.Characters.Count} PILOTS";
+        // ---- fit picker (flyout + FITTINGS library): identical fits merged, variants grouped (see FitCatalog)
+        var defaultHulls = selected.Select(s => s.TypeId).ToHashSet();
+        if (_catalogSnap != snap || !defaultHulls.SetEquals(_catalogHulls))
+        {
+            _catalogSnap = snap;
+            _catalogHulls = defaultHulls;
+            FitPicker.Load(FitCatalog.Families(FitCatalog.Group(snap.Fittings)), snap.Characters, tn, defaultHulls, new FitIndex(snap.Fittings));
+        }
+        if (IsFitSyncOpen) RebuildFitSync();
+        AutoOpenFitSync();
 
         SavedPlans = _refitFile.Plans.Select(p => new SavedPlanVm(p.Name,
             $"{p.ShipItemIds.Count} SHIPS · {p.NewHulls} NEW · {Formatting.Ago(p.SavedAt).ToUpperInvariant()}",
