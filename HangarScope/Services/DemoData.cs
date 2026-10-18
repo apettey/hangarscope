@@ -114,6 +114,8 @@ public static class DemoData
             new() { FittingId = 4, CharId = R, Name = "Ishtar · Sentry anoms", ShipTypeId = Ishtar, Items = Sentry().ToList() },
             new() { FittingId = 5, CharId = K, Name = "Ishtar · Sentry anoms", ShipTypeId = Ishtar, Items = Sentry().ToList() },
             new() { FittingId = 6, CharId = M, Name = "Ishtar · Sentry", ShipTypeId = Ishtar, Items = Sentry().ToList() },
+            // an older revision under the same name: the FITTINGS library shows it as outdated next to Keldan's copy
+            new() { FittingId = 7, CharId = M, Name = "Paladin · Blitz C5", ShipTypeId = Paladin, Items = BlitzV1().ToList() },
         };
 
         var year = DateTimeOffset.UtcNow.Year;
@@ -200,6 +202,12 @@ public static class DemoData
         (Mjd, "MedSlot", 1), (Tc, "MedSlot", 2), (Sb, "MedSlot", 1),
         (Hs, "LoSlot", 4), (Te, "LoSlot", 2), (Dda, "LoSlot", 1),
         (Elc, "RigSlot", 2), (Ham, "DroneBay", 5));
+
+    private static FitItem[] BlitzV1() => Items(
+        (Mpl, "HiSlot", 4), (Bast, "HiSlot", 1), (Dla, "HiSlot", 1),
+        (Mjd, "MedSlot", 1), (Tc, "MedSlot", 2), (Sb, "MedSlot", 1),
+        (Hs, "LoSlot", 3), (Te, "LoSlot", 3), (Dda, "LoSlot", 1),
+        (Ecr, "RigSlot", 2), (Hob, "DroneBay", 5));
 
     private static FitItem[] Sentry() => Items(
         (Dla, "HiSlot", 2), (Tc, "MedSlot", 2), (Dda, "LoSlot", 3), (Lar, "LoSlot", 1), (Hob, "DroneBay", 5));

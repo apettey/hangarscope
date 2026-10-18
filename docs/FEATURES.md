@@ -27,7 +27,7 @@ Pick the ships you want to standardise, set one target fit, and REFIT works out 
 
 - **Ships** — every assembled ship across all pilots, filtered by hull, ship name or pilot. Click to add a ship to the plan; selected ships get column keys A, B, C… The list is virtualized.
 - **Target fit** — **IN-GAME FIT ▾** picks any fitting saved in game by any pilot, **PASTE EFT** imports the in-game "Copy to clipboard" format (unknown names are resolved with `POST /universe/ids/`), **COPY SHIP ▾** copies one selected ship, **UNION OF ALL** takes the most of every module across the selected ships, **CLEAR** starts over, **COPY EFT** exports the target. The fit name is editable.
-- **Save target to all pilots** — saves the target as an in-game fitting on every pilot who does not already have it (matched by hull + modules, ignoring the name). Nothing is written until you press **CONFIRM · WRITE IN GAME** in the confirmation bar.
+- **Save target to pilots…** — opens the pilot picker (see [Sync to…](#sync-to--pick-pilots-replace-outdated-copies)) for the target fit. Nothing is written until you press **CONFIRM · WRITE IN GAME** in the confirmation bar.
 - **New hulls to buy** — a stepper and a pilot. New hulls are empty ships filled last; the hull goes on the shopping list.
 - **Where modules can come from** — modules stripped from the selected ships; unfitted stock in hangars, containers and cargo; other pilots' items (needs a contract — turn it off to buy instead).
 - **Target includes** — drone/fighter bays (on by default), charges (crystals, scripts, ammo — off by default), other cargo (off by default).
@@ -60,13 +60,26 @@ Implemented in [`Services/RefitPlanner.cs`](../HangarScope/Services/RefitPlanner
 
 ![Fittings library](screenshots/fittings-library.png)
 
-REFIT → **FITTINGS LIBRARY** merges every pilot's saved in-game fittings. Identical fits on several pilots (same hull and modules, any name) are one row, with a dot per pilot (filled = has it) and how many are missing it.
+REFIT → **FITTINGS LIBRARY** merges every pilot's saved in-game fittings. Identical fits on several pilots (same hull and modules, any name) are one row, with a dot per pilot (filled = has it), how many pilots are missing it and how many hold an outdated copy.
 
 - **USE AS TARGET** loads the fit into the plan.
-- **PUSH TO MISSING** saves the fit on the pilots who don't have it.
+- **SYNC TO…** opens the pilot picker for that fit.
 - **DELETE** removes every copy of the fit from the game.
 
-Push and delete only run after the confirmation bar's **CONFIRM · WRITE IN GAME**. ESI cannot edit a saved fit in place, so a changed fit is saved as a new copy. ESI caches each character's fittings list for about five minutes; HangarScope keeps its local copy after a save or delete until ESI serves a list generated after the write, so a deleted fit no longer reappears and a new one no longer vanishes on the next sync.
+Sync and delete only run after the confirmation bar's **CONFIRM · WRITE IN GAME**. ESI cannot edit a saved fit in place, so a changed fit is saved as a new copy (and the old one deleted if you replace it).
+
+### Sync to… · pick pilots, replace outdated copies
+
+![Fittings sync picker](screenshots/fittings-sync-picker.png)
+
+**SYNC TO…** (library row) and **SAVE TARGET TO PILOTS…** (rail) open a picker above the plan. Each pilot is a checkbox with its color dot, name and one state:
+
+- **HAS IT** — a fit with the same hull and contents is saved, under any name. Nothing to write; not selectable.
+- **OUTDATED COPY** — a fit with the same hull and name (ignoring case, surrounding spaces and ESI's 50-character cut) but different contents. Opt-in.
+- **MISSING** — neither. Ticked by default.
+- **NO FITTINGS SCOPE** — the character was linked without `esi-fittings.write_fittings.v1`. Disabled, with a hint to re-link it in CHARACTERS.
+
+**ALL** / **NONE** tick every selectable pilot or none. With **Replace outdated copies** on (the default), a ticked outdated pilot gets the new copy saved first; its old copies are deleted only if that save succeeded, so the pilot is never left without the fit. Turned off, the new copy is saved next to the old one. The line under the pilots, and the confirmation bar after **REVIEW WRITE**, list exactly who gets a save, a replacement or nothing. After the write, a results panel reports each pilot: saved, replaced, save failed (old copy kept) or saved but the old copy could not be deleted. Pilots are written one at a time and a failure on one never stops the rest. The rules live in `Services/FitSync.cs` and are covered by `HangarScope.Tests/FitSyncTests.cs`. ESI caches each character's fittings list for about five minutes; HangarScope keeps its local copy after a save or delete until ESI serves a list generated after the write, so a deleted fit no longer reappears and a new one no longer vanishes on the next sync.
 
 ## DASHBOARD — net worth
 
@@ -119,8 +132,8 @@ One card per character:
 - **ESI client** — ETag caching, `X-Pages` pagination, error-limit backoff, ≤8 concurrent requests.
 - **Asset aggregation** — raw asset items are walked up their container/ship chains to a root station or structure; fitting-slot flags become FITTED, nested items CTNR.
 - **Ship fits** — alongside the per-station stacks, every assembled ship is kept with its own contents (slot flag, type, qty) and its player-given name (`/assets/names/`). This is what lets HangarScope tell which module is on which hull.
-- **Saved fittings** — with the fittings scopes granted, each character's in-game saved fittings are synced, and a fitting can be saved to several characters at once. Fits are matched across characters by hull and module list, ignoring the name. A sync right after a save or delete keeps the local list while ESI still serves its cached copy from before the write.
+- **Saved fittings** — with the fittings scopes granted, each character's in-game saved fittings are synced, and a fitting can be saved to the characters you pick, replacing their outdated same-named copies (save first, delete after). Fits are matched across characters by hull and module list, ignoring the name. A sync right after a save or delete keeps the local list while ESI still serves its cached copy from before the write.
 - **Hull slots** — slot counts per hull come from the type's dogma attributes and are cached with the type in `universe.json`.
 - **Prices** — per-type regional order books; best sell at the hub station, best regional buy.
 - **Diagnostics** — sync events log to `%APPDATA%\HangarScope\sync.log`, UI timings to `perf.log`.
-- **Demo mode** — `--demo` forces the prototype dataset (it includes four fitted Paladins, saved fittings and spare modules for REFIT). Screenshot automation flags: `--screen=<assets|refit|dash|wallet|loc|auth|settings>` opens on a given tab, `--refit-mode=fittings` opens the FITTINGS library, `--refit-scroll=<orders|lists>` scrolls the plan, and `--snapshot=<file.png>` renders the window to a PNG and exits.
+- **Demo mode** — `--demo` forces the prototype dataset (it includes four fitted Paladins, saved fittings (one with an outdated same-named copy) and spare modules for REFIT). Screenshot automation flags: `--screen=<assets|refit|dash|wallet|loc|auth|settings>` opens on a given tab, `--refit-mode=fittings` opens the FITTINGS library, `--refit-scroll=<orders|lists>` scrolls the plan, `--fit-sync=<name part>` opens the SYNC TO picker on that saved fit (`--fit-sync-pick=all` ticks every selectable pilot), and `--snapshot=<file.png>` renders the window to a PNG and exits.

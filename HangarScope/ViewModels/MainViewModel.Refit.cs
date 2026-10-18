@@ -181,15 +181,8 @@ public sealed partial class MainViewModel
     {
         var hull = TargetHull();
         if (hull == 0 || _refitTarget.Lines.Count == 0) { RefitStatusText = "SET A TARGET FIT FIRST"; return; }
-        var items = RefitPlanner.ToFitItems(_refitTarget.Lines);
-        var hash = FitMath.Hash(hull, items);
-        var have = _snap.Fittings.Where(f => FitMath.Hash(f.ShipTypeId, f.Items) == hash).Select(f => f.CharId).ToHashSet();
-        var missing = _snap.Characters.Where(c => !have.Contains(c.Id)).ToList();
-        if (missing.Count == 0) { RefitStatusText = "EVERY PILOT ALREADY HAS THIS FIT"; return; }
-        var name = string.IsNullOrWhiteSpace(_refitTarget.Name) ? _typeName(hull) + " refit" : _refitTarget.Name;
-        AskWrite($"SAVE FITTING “{name}” ({_typeName(hull)}, {items.Count} ITEMS) IN GAME FOR {missing.Count} PILOT{(missing.Count == 1 ? "" : "S")}: " +
-                 string.Join(", ", missing.Select(c => c.Name)).ToUpperInvariant(),
-            () => WriteFitting(missing.Select(c => c.Id).ToList(), new SavedFitting { Name = name, ShipTypeId = hull, Items = items }));
+        var name = string.IsNullOrWhiteSpace(_refitTarget.Name) ? _typeName(hull) + " refit" : _refitTarget.Name.Trim();
+        OpenFitSync(new SavedFitting { Name = name, ShipTypeId = hull, Items = RefitPlanner.ToFitItems(_refitTarget.Lines) });
     }
 
     [RelayCommand]
@@ -224,18 +217,10 @@ public sealed partial class MainViewModel
             RefitStatusText = "DEMO DATA · LINK A CHARACTER TO WRITE IN-GAME FITTINGS";
             return;
         }
+        IsFitSyncOpen = false;
         _pendingWrite = write;
         PendingWriteText = text;
         HasPendingWrite = true;
-    }
-
-    private async Task WriteFitting(List<long> charIds, SavedFitting fit)
-    {
-        RefitStatusText = "SAVING FITTING…";
-        var results = await _sync.SaveFitting(charIds, fit);
-        var ok = results.Count(r => r.ok);
-        var failed = results.Where(r => !r.ok).Select(r => r.message).ToList();
-        RefitStatusText = $"SAVED ON {ok} OF {results.Count} PILOTS" + (failed.Count > 0 ? " · " + string.Join(" · ", failed).ToUpperInvariant() : "");
     }
 
     private async Task DeleteFits(List<SavedFitting> fits)
@@ -414,6 +399,7 @@ public sealed partial class MainViewModel
 
         // ---- fittings library (identical fits on several pilots are one row)
         var fitGroups = snap.Fittings.GroupBy(f => FitMath.Hash(f.ShipTypeId, f.Items)).ToList();
+        var fitIndex = new FitIndex(snap.Fittings);
         FitLibrary = fitGroups
             .Select(g => (g, first: g.First()))
             .Where(x => q.Length == 0 || x.first.Name.ToLowerInvariant().Contains(q) || tn(x.first.ShipTypeId).ToLowerInvariant().Contains(q))
@@ -421,9 +407,12 @@ public sealed partial class MainViewModel
             .Select(x =>
             {
                 var have = x.g.Select(f => f.CharId).ToHashSet();
-                var missing = snap.Characters.Where(c => !have.Contains(c.Id)).ToList();
                 var names = x.g.Select(f => f.Name).Distinct().ToList();
                 var fit = x.first;
+                // outdated: a same-hull, same-named copy with other contents (see FitSync)
+                var lacking = FitSync.Classify(snap.Characters, fitIndex, fit.ShipTypeId, fit.Name, fit.Items).Where(s => s.State != FitCopyState.Has).ToList();
+                var outdated = lacking.Count(s => s.OldCopies.Count > 0);
+                var missing = lacking.Count - outdated;
                 var mods = fit.Items.Where(i => FitMath.SlotGroup(i.Flag) is "HIGH" or "MED" or "LOW" or "RIG" or "SUBSYSTEM").Sum(i => i.Qty);
                 return new FitLibVm
                 {
@@ -432,22 +421,18 @@ public sealed partial class MainViewModel
                     ModulesText = $"{mods} MODULES · {fit.Items.Count} LINES",
                     Pilots = snap.Characters.Select(c => new PilotDotVm(c.Name, B(c.Color), have.Contains(c.Id))).ToList(),
                     SavedOnText = have.Count == 1 ? $"SAVED ON {CharName(have.First()).ToUpperInvariant()} ONLY" : $"SAVED ON {have.Count} OF {snap.Characters.Count} PILOTS",
-                    MissingText = missing.Count > 0 ? $"MISSING ON {missing.Count} PILOT{(missing.Count == 1 ? "" : "S")}" : "",
-                    CanPush = missing.Count > 0,
+                    MissingText = missing > 0 ? $"MISSING ON {missing} PILOT{(missing == 1 ? "" : "S")}" : "",
+                    OutdatedText = outdated > 0 ? $"{outdated} OUTDATED" : "",
                     Use = new RelayCommand(() => { SetTarget(fit.ShipTypeId, fit.Name, RefitPlanner.ToLines(fit.Items, snap.Types)); ShowPlan(); }),
-                    AskPush = new RelayCommand(() =>
-                    {
-                        if (missing.Count == 0) return;
-                        AskWrite($"SAVE FITTING “{fit.Name}” IN GAME FOR {missing.Count} PILOT{(missing.Count == 1 ? "" : "S")}: " +
-                                 string.Join(", ", missing.Select(c => c.Name)).ToUpperInvariant(),
-                            () => WriteFitting(missing.Select(c => c.Id).ToList(), fit));
-                    }),
+                    SyncTo = new RelayCommand(() => OpenFitSync(fit)),
                     AskDelete = new RelayCommand(() =>
                         AskWrite($"DELETE FITTING “{fit.Name}” IN GAME FROM {x.g.Count()} PILOT{(x.g.Count() == 1 ? "" : "S")}: " +
                                  string.Join(", ", x.g.Select(f => CharName(f.CharId))).ToUpperInvariant() + " · THIS CANNOT BE UNDONE",
                             () => DeleteFits(x.g.ToList()))),
                 };
             }).ToList();
+        if (IsFitSyncOpen) RebuildFitSync();
+        AutoOpenFitSync();
         FitLibraryHeader = $"IN-GAME FITTINGS · {fitGroups.Count} FITS · {snap.Fittings.Count} COPIES ACROSS {snap.Characters.Count} PILOTS";
 
         SavedPlans = _refitFile.Plans.Select(p => new SavedPlanVm(p.Name,
