@@ -80,8 +80,10 @@ jobs:
           head_tag=$(git tag --points-at HEAD --list 'v*' | python3 scripts/release_version.py latest-tag)
           # HEAD already released in a later version (an old run re-run after newer merges shipped):
           # releasing it again would publish older code as the newest version.
-          later=$(git tag --contains HEAD --list 'v*' | grep -vxF -f <(git tag --points-at HEAD --list 'v*') \
-            | python3 scripts/release_version.py latest-tag || true)
+          # grep exits 1 when it filters every tag out; any other failure fails the run.
+          later=$(git tag --contains HEAD --list 'v*' \
+            | { grep -vxF -f <(git tag --points-at HEAD --list 'v*') || [ $? -eq 1 ]; } \
+            | python3 scripts/release_version.py latest-tag)
           if [ -z "$head_tag" ] && [ -n "$later" ]; then
             echo "::warning::$GITHUB_SHA is already released in $later; nothing to do."
             { echo "release=false"; echo "finalize=false"; } >> "$GITHUB_OUTPUT"
@@ -239,6 +241,7 @@ jobs:
           PRERELEASE: ${{ needs.version.outputs.prerelease }}
           NOTES: ${{ needs.version.outputs.notes }}
           ZIP: HangarScope-${{ needs.version.outputs.version }}-win-x64.zip
+          BUILD_RESULT: ${{ needs.build.result }}
         run: |
           set -euo pipefail
           printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
@@ -259,8 +262,12 @@ jobs:
               echo "Published as a normal release. Installed copies auto-update to it."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$pre" != "$PRERELEASE" ]; then
-            echo "::warning::$TAG is prerelease=$pre but its PR labels say prerelease=$PRERELEASE (the Release existed before this run). Change it by hand if needed: gh release edit $TAG --prerelease=$PRERELEASE"
+          # A promoted deploy:manual release (labels hold, Release stable) is the normal end state, so a
+          # notes-only run says nothing about it. Never suggest re-holding: installed copies may run it.
+          if [ "$pre" = "true" ] && [ "$PRERELEASE" = "false" ]; then
+            echo "::warning::$TAG is a prerelease although no PR in it has deploy:manual (the Release existed before this run). If nothing is waiting, promote it: gh release edit $TAG --prerelease=false"
+          elif [ "$pre" = "false" ] && [ "$PRERELEASE" = "true" ] && [ "$BUILD_RESULT" = "success" ]; then
+            echo "::warning::$TAG has deploy:manual but was already published as a normal release before this run, so installed copies may already update to it. Check the outside work is done."
           fi
           if [ "$draft" != "false" ] || [ "$zip" != "true" ] || [ "$nupkg" != "true" ]; then
             echo "::error::$TAG is incomplete (draft: $draft, zip: $zip, Velopack package: $nupkg). Publish the draft with 'gh release edit $TAG --draft=false' if it has every file, or delete the draft and run this workflow by hand on master."

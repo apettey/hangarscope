@@ -62,7 +62,9 @@ Re-runs and manual runs:
   the same place and does not finish it. Run the workflow by hand on `master` instead (Actions → Release → Run
   workflow): on a tagged commit whose release isn't complete it finishes that version on the same commit. Push runs
   never do this, so they can't race a `release.ps1` tag build. The labels' prerelease decision only applies when this
-  run creates the Release; an existing one keeps its state, and `finalize` warns if it differs.
+  run creates the Release; an existing one keeps its state. `finalize` warns if a Release is a prerelease without
+  `deploy:manual`, or was already a normal release when a run finished it despite `deploy:manual` (a promoted
+  release is normal and gets no warning).
 - `finalize` fails if the Release is still a draft or lacks the zip or the `*-full.nupkg` (a draft left behind by a
   failed `vpk upload` on a reused tag). Publish it with `gh release edit vX.Y.Z --draft=false` if it has every file,
   otherwise delete the draft and run the workflow by hand on `master`.
