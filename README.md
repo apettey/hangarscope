@@ -97,6 +97,10 @@ Performance: the asset table is virtualized and the view model recomputes per-sc
 dotnet publish HangarScope -c Release -r win-x64 --self-contained false -o publish
 ```
 
+## Contributing and releases
+
+Every change follows the six rules in [`AGENTS.md`](AGENTS.md) (tests, a review loop, before/after screenshots, a release-log entry, a new version per merge, fast releases); agents run them through the [`ship-change`](.claude/skills/ship-change/SKILL.md) skill. What changed and when is in the [release log](docs/changelog/README.md); user-facing announcements are in [`docs/whats-new/features.json`](docs/whats-new/features.json).
+
 ## Fonts
 
 Bundled [Barlow Condensed](https://fonts.google.com/specimen/Barlow+Condensed) and [IBM Plex Mono](https://fonts.google.com/specimen/IBM+Plex+Mono), both under the SIL Open Font License (see `HangarScope/Assets/Fonts/`).

@@ -1,0 +1,10 @@
+# Release log
+
+One entry per change, newest first. Every merge to `master` is released as a new version (see
+[`AGENTS.md`](../../AGENTS.md) and the `ship-change` skill in [`.claude/skills/ship-change/`](../../.claude/skills/ship-change/SKILL.md)).
+New entries start from [`TEMPLATE.md`](TEMPLATE.md); add the row at the top of the table. Entries are a log and are
+never rewritten: changing a feature again gets a new entry.
+
+| Date | Change | Summary |
+| --- | --- | --- |
+| 2026-10-18 | [Ship-change process](2026-10-18-ship-change-skill/README.md) | Internal: `ship-change` skill, release log, what's-new file and PR template; every merge is released |
