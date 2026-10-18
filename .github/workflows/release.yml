@@ -14,8 +14,10 @@
 #    a Release is out, the shared workflow deletes the tag it created, so the next run retries.
 # 3. finalize: replaces the generated release notes with the ones from step 1.
 #
-# Re-running failed jobs is safe: the shared workflow reuses a tag already on this commit and
-# doesn't upload Velopack packages again once the Release has them.
+# Re-running failed jobs is safe while no newer version has been released: the shared workflow
+# reuses a tag already on this commit and doesn't upload Velopack packages again once the Release
+# has them. finalize fails if the Release is still a draft or misses the zip or Velopack package.
+# A run whose commit is already in a later release does nothing.
 #
 # A pushed v* tag (manual fallback: scripts/release.ps1) still builds and publishes that tag
 # the old way; the master push that release.ps1 makes alongside it is skipped because its
@@ -73,8 +75,18 @@ jobs:
         run: |
           set -euo pipefail
           tags=$RUNNER_TEMP/tags.txt
-          git tag --list 'v*' > "$tags"
+          # Only tags in HEAD's history: a re-run of an older run must not version from a newer tag.
+          git tag --merged HEAD --list 'v*' > "$tags"
           head_tag=$(git tag --points-at HEAD --list 'v*' | python3 scripts/release_version.py latest-tag)
+          # HEAD already released in a later version (an old run re-run after newer merges shipped):
+          # releasing it again would publish older code as the newest version.
+          later=$(git tag --contains HEAD --list 'v*' | grep -vxF -f <(git tag --points-at HEAD --list 'v*') \
+            | python3 scripts/release_version.py latest-tag || true)
+          if [ -z "$head_tag" ] && [ -n "$later" ]; then
+            echo "::warning::$GITHUB_SHA is already released in $later; nothing to do."
+            { echo "release=false"; echo "finalize=false"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           release=true
           if [ -n "$head_tag" ]; then
             # Complete = published (not a draft) with the zip, which the shared workflow attaches last.
@@ -87,8 +99,9 @@ jobs:
               echo "HEAD is already tagged $head_tag and released - rewriting its notes only."
               release=false
             elif [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
-              # On a push the tag's own run (release.ps1 fallback) or an earlier run owns it.
-              echo "HEAD is already tagged $head_tag without a complete release - run this workflow by hand to finish it."
+              # On a push the tag's own run (release.ps1 fallback) or an earlier run owns it. "Re-run all
+              # jobs" lands here too, and doesn't finish the release: only a manual run does.
+              echo "::warning::$head_tag is tagged on this commit but its release isn't complete (published, with the zip). If no tag build is still running, finish it: Actions > Release > Run workflow on master."
               { echo "release=false"; echo "finalize=false"; } >> "$GITHUB_OUTPUT"
               exit 0
             else
@@ -115,7 +128,10 @@ jobs:
           # before/after and PR labels. Direct pushes have no PR, so no labels.
           d=$RUNNER_TEMP/merge
           : > "$RUNNER_TEMP/decisions.txt"
-          for sha in $(git rev-list --first-parent "$range"); do
+          # Listed to a file first so a failing rev-list fails the run instead of looping zero times
+          # (which would release unheld, without the merges' labels).
+          git rev-list --first-parent "$range" > "$RUNNER_TEMP/shas.txt"
+          while read -r sha; do
             : > "$d-before.json"; : > "$d-after.json"
             if parent=$(git rev-parse -q --verify "$sha^1"); then
               git diff --name-only "$parent" "$sha" > "$d-changed.txt"
@@ -139,7 +155,7 @@ jobs:
             pre=$(sed -n 's/^prerelease=//p' "$d-result.txt")
             echo "$(git log -1 --format='%h %s' "$sha"): $bump ($reason; prerelease: $pre; labels: $labels)"
             echo "$bump $pre $reason" >> "$RUNNER_TEMP/decisions.txt"
-          done
+          done < "$RUNNER_TEMP/shas.txt"
 
           python3 scripts/release_version.py combine \
             --latest-tag "$latest" --decisions-file "$RUNNER_TEMP/decisions.txt" > "$RUNNER_TEMP/combined.txt"
@@ -222,20 +238,34 @@ jobs:
           TAG: ${{ needs.version.outputs.tag }}
           PRERELEASE: ${{ needs.version.outputs.prerelease }}
           NOTES: ${{ needs.version.outputs.notes }}
+          ZIP: HangarScope-${{ needs.version.outputs.version }}-win-x64.zip
         run: |
           set -euo pipefail
           printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
+
+          # Report what the Release really is: an existing Release keeps the draft/prerelease state it
+          # had, whatever the labels say now.
+          state=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets \
+            --jq '[.isDraft, .isPrerelease, any(.assets[]; .name == env.ZIP), any(.assets[]; .name | endswith("-full.nupkg"))] | map(tostring) | join(" ")')
+          read -r draft pre zip nupkg <<< "$state"
           {
             echo "## $TAG"
             echo
-            if [ "$PRERELEASE" = "true" ]; then
-              echo "Published as a **prerelease** (deploy:manual): installed copies don't update to it."
+            if [ "$pre" = "true" ]; then
+              echo "Published as a **prerelease**: installed copies don't update to it."
               echo "Once the outside work is done, promote it: \`gh release edit $TAG --prerelease=false\`"
             else
-              echo "Published. Installed copies auto-update to it."
+              echo "Published as a normal release. Installed copies auto-update to it."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$pre" != "$PRERELEASE" ]; then
+            echo "::warning::$TAG is prerelease=$pre but its PR labels say prerelease=$PRERELEASE (the Release existed before this run). Change it by hand if needed: gh release edit $TAG --prerelease=$PRERELEASE"
+          fi
+          if [ "$draft" != "false" ] || [ "$zip" != "true" ] || [ "$nupkg" != "true" ]; then
+            echo "::error::$TAG is incomplete (draft: $draft, zip: $zip, Velopack package: $nupkg). Publish the draft with 'gh release edit $TAG --draft=false' if it has every file, or delete the draft and run this workflow by hand on master."
+            exit 1
+          fi
 
   # v* tag pushes (manual fallback): the shared workflow takes the version from the tag.
   # Push only: a workflow_dispatch on a tag ref must not publish anything.

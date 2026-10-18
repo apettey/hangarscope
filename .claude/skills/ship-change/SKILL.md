@@ -93,9 +93,9 @@ are never skipped.
    merge commit. The Release workflow on `master` then tests, builds and packs that version and only then tags it
    and publishes the GitHub Release (a prerelease with `deploy:manual`), then sets its notes from the release log.
    Check the run is green and the release has the zip and Velopack packages. If it failed, re-run the failed jobs
-   (safe: the tag on this commit is reused and published packages aren't uploaded again) or merge a fix; if a tag is
-   left without a complete release, run the Release workflow by hand on `master` (Actions → Release → Run
-   workflow), which finishes that version. For `deploy:manual`, promote the prerelease once the outside work is done:
+   (safe while no newer version is out: the tag on this commit is reused and published packages aren't uploaded
+   again) or merge a fix; if a tag is left without a complete release, run the Release workflow by hand on `master`
+   (Actions → Release → Run workflow), which finishes that version ("Re-run all jobs" doesn't). For `deploy:manual`, promote the prerelease once the outside work is done:
    `gh release edit vX.Y.Z --prerelease=false`.
    Details: [references/versioning-and-release.md](references/versioning-and-release.md).
 

@@ -50,14 +50,22 @@ every entry.
 
 Re-runs and manual runs:
 
-- **Re-run failed jobs** is always safe: the shared workflow reuses a tag that already points at this commit (and
-  refuses one on another commit) and doesn't upload Velopack packages again once the Release has a `*-full.nupkg`;
-  the zip is re-uploaded with `--clobber`. A failed `finalize` re-runs on its own.
+- **Re-run failed jobs** is safe as long as no newer version has been released since: the shared workflow reuses a
+  tag that already points at this commit (and refuses one on another commit) and doesn't upload Velopack packages
+  again once the Release has a `*-full.nupkg`; the zip is re-uploaded with `--clobber`. A failed `finalize` re-runs
+  on its own. If a newer version is already out, don't re-run an old failed build: it would publish the old commit
+  as a new version (installed apps stay on the higher one, but GitHub's "Latest" moves); the newer release already
+  contains those changes.
+- A run (or re-run of all jobs) on a commit that is already in a later release does nothing.
 - A push whose commit is already tagged without a complete release (published, not a draft, with the zip) is
-  skipped: the tag's own run (`release.ps1`) or an earlier run owns it. If one is left like that, run the workflow by
-  hand on `master` (Actions → Release → Run workflow): on a tagged commit whose release isn't complete it finishes
-  that version on the same commit, with the same `deploy:manual` prerelease decision. Push runs never do this, so
-  they can't race a `release.ps1` tag build.
+  skipped with a warning: the tag's own run (`release.ps1`) or an earlier run owns it. **Re-run all jobs** lands in
+  the same place and does not finish it. Run the workflow by hand on `master` instead (Actions → Release → Run
+  workflow): on a tagged commit whose release isn't complete it finishes that version on the same commit. Push runs
+  never do this, so they can't race a `release.ps1` tag build. The labels' prerelease decision only applies when this
+  run creates the Release; an existing one keeps its state, and `finalize` warns if it differs.
+- `finalize` fails if the Release is still a draft or lacks the zip or the `*-full.nupkg` (a draft left behind by a
+  failed `vpk upload` on a reused tag). Publish it with `gh release edit vX.Y.Z --draft=false` if it has every file,
+  otherwise delete the draft and run the workflow by hand on `master`.
 - A run on a tagged commit whose release is complete only rewrites the notes (`finalize`).
 - `workflow_dispatch` only releases from `master`; on any other branch or a tag it does nothing.
 
