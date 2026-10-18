@@ -11,15 +11,19 @@ Guidance for AI agents (and humans) contributing to this repository.
 - ESI credentials are entered by the user in the SETTINGS screen only. Never hardcode, log, or commit credentials or tokens.
 - Real characters can own thousands of asset stacks. Any list bound to asset-scale data must be virtualized (see the ListBox in `AssetsView.axaml`), and per-item aggregations in `MainViewModel.Recompute()` must be precomputed into dictionaries, not nested LINQ scans.
 
-## Documentation policy (required for every feature)
+## Shipping changes (required for every change)
 
-Every time a new feature is added or an existing feature's behavior/UI changes:
+Follow the `ship-change` skill ([`.claude/skills/ship-change/SKILL.md`](.claude/skills/ship-change/SKILL.md)) for every change, of any kind. This file wins if the two disagree; update the skill in the same PR that changes a rule. Six rules are blocking — a change missing any of them is not done:
 
-1. **Update the documentation in the same commit** — `README.md` (and `AGENTS.md` if conventions change) must describe the feature: what it does, where it lives in the UI, and any new settings, files, or ESI scopes involved.
-2. **Add screenshots showing the feature** — capture the running app with the feature visible and commit them under `docs/screenshots/` (PNG, kebab-case names, e.g. `assets-filter-rail.png`, `wallet-30day-flow.png`). Reference them from the README section that describes the feature. Update stale screenshots when a screen's appearance changes.
-   Capture from the demo dataset: `HangarScope.exe --demo --screen=<tab> --snapshot=docs/screenshots/<name>.png` renders the window to a PNG and exits (`--refit-mode=fittings`, `--refit-scroll=orders|lists` `--fit-sync=<fit name part> [--fit-sync-pick=all]`, `--fit-tidy=<fit name part>` and `--fit-expand=all` reach the other REFIT views). Check SETTINGS captures before committing: that screen shows the local machine's real ESI client ID even in demo mode.
+1. **Tests are in place.** Every change adds or updates tests for the behaviour it changes; `dotnet test HangarScope.slnx` passes locally and in CI.
+2. **Review loop.** A fresh reviewer (a subagent or person who didn't write the change) reviews the diff; fix every finding and re-review until a round has zero findings. The round count goes in the PR body.
+3. **Before/after screenshots** for every visible change: `before.png` taken before the first edit, `after.png` of the final version, stored next to the release-log entry and shown in the PR.
+4. **Release-log entry** in the same PR: `docs/changelog/YYYY-MM-DD-<short-name>/README.md` from `docs/changelog/TEMPLATE.md`, with a row at the top of `docs/changelog/README.md`. Visible changes also get a user-facing entry in `docs/whats-new/features.json` keyed by the PR number.
+5. **Every merge gets a new version** — SemVer, no skip: a what's-new entry means minor, everything else patch, `semver:*` labels override, major only by label. Until a bump workflow exists, run `.\scripts\release.ps1 <bump>` on `master` after each merge.
+6. **Release quickly.** Small PRs, merged the same day, released straight after merge; installed apps auto-update from the GitHub Release (Velopack).
 
-A feature PR/commit without updated docs and screenshots is incomplete.
+Feature documentation still lives alongside the log: when a feature is added or a screen changes, update `README.md` / `docs/FEATURES.md` (what it does, where it lives in the UI, new settings, files or ESI scopes) and refresh `docs/screenshots/` (PNG, kebab-case names, e.g. `assets-filter-rail.png`).
+Capture from the demo dataset: `HangarScope.exe --demo --screen=<tab> --snapshot=<path>.png` renders the window to a PNG and exits (`--refit-mode=fittings`, `--refit-scroll=orders|lists` `--fit-sync=<fit name part> [--fit-sync-pick=all]`, `--fit-tidy=<fit name part>` and `--fit-expand=all` reach the other REFIT views). Check SETTINGS captures before committing: that screen shows the local machine's real ESI client ID even in demo mode.
 
 ## Verification expectations
 
