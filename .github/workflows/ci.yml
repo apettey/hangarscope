@@ -38,7 +38,9 @@ jobs:
           path: docs/whats-new/features.json
           images-root: docs/whats-new
           image-prefix: img/
-          base: ${{ github.event.pull_request.base.sha }}
+          # HEAD is the PR merged into the current base, so HEAD^1 is that base (the event's
+          # base.sha can be stale on labeled/unlabeled runs)
+          base: HEAD^1
           pr: ${{ github.event.pull_request.number }}
 
       # The shared next-version action in PR mode: the same code as the release run, so the
@@ -48,8 +50,8 @@ jobs:
         uses: apettey/eve-contracts/.github/actions/next-version@main
         with:
           mode: pr
-          base: ${{ github.event.pull_request.base.sha }}
-          head: ${{ github.event.pull_request.head.sha }}
+          base: HEAD^1
+          head: HEAD
           labels: ${{ toJSON(github.event.pull_request.labels.*.name) }}
           features-path: docs/whats-new/features.json
           changelog-dir: docs/changelog
