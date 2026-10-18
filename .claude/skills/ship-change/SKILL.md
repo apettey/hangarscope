@@ -111,8 +111,9 @@ Copy-paste checklist for the PR or your notes: [references/checklist.md](referen
 - PR image links are pinned to a **commit SHA**.
 - A release only counts once the Release run has **published** its artefacts. The tag is created after the build,
   so a failed build leaves no tag (a publish that fails before any Release is out removes the tag again); a tag left
-  without a published release is built again by the next run on that commit (re-run, or `workflow_dispatch` on
-  `master`).
+  without a published release is built again by a re-run on that commit while it is still `master`'s tip. Once
+  another merge lands, the next run steps over it: its changes ship in that later version (numbered above the
+  orphan tag), and the orphan's own number is never published.
 - `deploy:manual` publishes a **prerelease**: installed copies (`prerelease: false` in `UpdateChecker`) ignore it
   until `gh release edit vX.Y.Z --prerelease=false`. A later merge without the label is a normal release that
   includes the held change, so merge nothing else until it is promoted (or label those PRs too).

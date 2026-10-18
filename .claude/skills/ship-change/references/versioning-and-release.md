@@ -72,7 +72,7 @@ Re-runs and manual runs:
 - `finalize` fails if the Release is still a draft or lacks the zip or the `*-full.nupkg`. A draft: publish it with
   `gh release edit vX.Y.Z --draft=false` if it has every file, otherwise delete the draft and run the workflow by
   hand on `master`. A published Release without the zip has shipped; attach the zip by hand from the build run's
-  artifacts (`gh release upload`), or leave it.
+  artifacts (`gh release upload`); until then every run's `finalize` on that commit fails.
 - `workflow_dispatch` only releases from `master`; on any other branch it does nothing. It is also the manual
   fallback if a run needs repeating: there is no separate release script any more.
 

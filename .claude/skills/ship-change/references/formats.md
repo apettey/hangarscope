@@ -66,9 +66,11 @@ GitHub Release notes; keying by PR number lets an in-app panel show "new since y
 | `date` | `YYYY-MM-DD` |
 | `title` | The feature's name. |
 | `description` | 1–3 sentences of plain text (no HTML or Markdown), in the user's words: what it does and **where to find it** (screen and control names as they appear in the UI). `\n\n` starts a new paragraph. |
-| `images` | Optional, ideally 1–2: `{ src, caption }`, `src` relative to `docs/whats-new/`. The caption says where in the app the screenshot is. |
+| `images` | Omit it, or 1–2 `{ "src", "caption" }` objects (exactly those two keys). `src` is relative to `docs/whats-new/` and starts with `img/` (`img/pr-N-<name>.png`); the file must exist. The caption says where in the app the screenshot is. |
 
-Anything that renders this file must escape the text.
+No other fields. CI checks all of this with the shared validator from `apettey/eve-contracts` (an unknown field,
+HTML in `description`, an empty `images` list or a missing image fails the PR), and that entries this PR adds use its
+number. Anything that renders this file must escape the text.
 
 ## PR body
 
