@@ -24,7 +24,7 @@ There is no skip. Every merge to `master` is in a released version, every versio
 
 Automatic on every push to `master` (`.github/workflows/release.yml`). The versioning code is **shared** with
 eve-contracts and multi-box and lives in `apettey/eve-contracts` (composite actions `next-version`,
-`finalize-release` and `validate-features`, called `@main`; the code is `scripts/versioning/` there, with its tests).
+`finalize-release` and `validate-features`, pinned by commit SHA; the code is `scripts/versioning/` there, with its tests).
 This repo has no copy; its differences are action inputs: `features-path: docs/whats-new/features.json`,
 `changelog-dir: docs/changelog`, `app-name: HangarScope`, `notes-title: "{app} {tag}"` and
 `release-log-notes: full`.
@@ -88,8 +88,14 @@ version with the shared `next-version` action in `pr` mode (the PR on top of any
 writes **"Merging this PR would release vX.Y.Z"** to the job summary (re-run on label changes), then builds, runs
 `dotnet test HangarScope.slnx` and runs the win-x64 release publish.
 
-Changing the versioning rules or code is a PR in `apettey/eve-contracts` (it changes all three apps' releases);
-dry-run it against this repo from there before merging.
+Changing the versioning rules or code is a PR in `apettey/eve-contracts`; dry-run it against this repo from there
+before merging. It reaches this repo when the pin is bumped.
+
+**Pinned, not `@main`.** Every `uses: apettey/eve-contracts/...` line (the three actions and `build-windows-app.yml`)
+points at a full commit SHA with a `# vX.Y.Z` comment, so a push to eve-contracts can't change this repo's releases
+until a PR here moves the pin. Dependabot's weekly `github-actions` update opens that PR when eve-contracts releases a
+new version; review the eve-contracts changes it links, then merge. To pick up a shared change sooner, bump all the
+pins together by hand: `gh api repos/apettey/eve-contracts/commits/vX.Y.Z --jq .sha`.
 
 ### `deploy:manual`
 
