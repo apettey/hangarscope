@@ -7,5 +7,5 @@ never rewritten: changing a feature again gets a new entry.
 
 | Date | Change | Summary |
 | --- | --- | --- |
-| 2026-10-18 | [Release automation](2026-10-18-release-automation/README.md) | Internal: every merge to `master` is versioned, built, tagged and released by CI; PR CI predicts the version and checks `features.json` |
+| 2026-10-18 | [Release automation](2026-10-18-release-automation/README.md) | Internal: every merge to `master` is versioned, built, tagged and released by CI; PR CI predicts the version and checks `features.json`; `deploy:manual` publishes a prerelease |
 | 2026-10-18 | [Ship-change process](2026-10-18-ship-change-skill/README.md) | Internal: `ship-change` skill, release log, what's-new file and PR template; every merge is released |

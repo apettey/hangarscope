@@ -80,6 +80,14 @@ class BumpTests(unittest.TestCase):
     def test_other_labels_ignored(self):
         self.assertEqual(rv.decide_bump("v1.2.3", [], ["deploy:manual", "semver:huge", "dependencies"])["bump"], "patch")
 
+    def test_deploy_manual_is_prerelease(self):
+        r = rv.decide_bump("v1.2.3", [], ["bug", " deploy:manual "])
+        self.assertEqual((r["bump"], r["prerelease"]), ("patch", "true"))
+
+    def test_no_deploy_manual_is_not_prerelease(self):
+        self.assertEqual(rv.decide_bump("v1.2.3", [], ["semver:minor", "deploy:manual-ish"])["prerelease"], "false")
+        self.assertEqual(rv.decide_bump("v1.2.3", [], [])["prerelease"], "false")
+
     def test_no_tag_starts_from_zero(self):
         self.assertEqual(rv.decide_bump("", [], [])["version"], "0.0.1")
 
@@ -95,20 +103,36 @@ class CombineTests(unittest.TestCase):
     def test_patch_label_on_one_pr_does_not_hide_another_prs_feature(self):
         a = rv.decide_bump("v1.2.0", ["README.md"], ["semver:patch"])
         b = rv.decide_bump("v1.2.0", [FEATURES], [], features(14), features(15, 14))
-        r = rv.combine_bumps("v1.2.0", [(a["bump"], a["reason"]), (b["bump"], b["reason"])])
-        self.assertEqual((r["bump"], r["version"]), ("minor", "1.3.0"))
+        r = rv.combine_bumps("v1.2.0", [(a["bump"], a["reason"], False), (b["bump"], b["reason"], False)])
+        self.assertEqual((r["bump"], r["version"], r["prerelease"]), ("minor", "1.3.0", "false"))
         self.assertIn("#15", r["reason"])
 
     def test_biggest_wins_and_reasons_deduplicated(self):
-        r = rv.combine_bumps("v1.2.3", [("patch", "x"), ("major", "label semver:major"), ("major", "label semver:major")])
+        r = rv.combine_bumps("v1.2.3", [("patch", "x", False), ("major", "label semver:major", False),
+                                        ("major", "label semver:major", False)])
         self.assertEqual((r["version"], r["reason"]), ("2.0.0", "label semver:major"))
 
     def test_no_merges_is_patch(self):
-        self.assertEqual(rv.combine_bumps("v1.2.3", [])["version"], "1.2.4")
+        r = rv.combine_bumps("v1.2.3", [])
+        self.assertEqual((r["version"], r["prerelease"]), ("1.2.4", "false"))
+
+    def test_one_deploy_manual_merge_makes_the_release_a_prerelease(self):
+        r = rv.combine_bumps("v1.2.3", [("minor", "feature", False), ("patch", "x", True)])
+        self.assertEqual((r["version"], r["prerelease"]), ("1.3.0", "true"))
 
     def test_unknown_bump_raises(self):
         with self.assertRaises(ValueError):
-            rv.combine_bumps("v1.2.3", [("huge", "?")])
+            rv.combine_bumps("v1.2.3", [("huge", "?", False)])
+
+    def test_parse_decision(self):
+        self.assertEqual(rv.parse_decision("minor true new what's-new entry for PR #15"),
+                         ("minor", "new what's-new entry for PR #15", True))
+        self.assertEqual(rv.parse_decision("patch false"), ("patch", "", False))
+
+    def test_parse_decision_rejects_missing_or_bad_prerelease_flag(self):
+        for line in ("patch", "patch label semver:patch", "patch yes x", ""):
+            with self.assertRaises(ValueError, msg=line):
+                rv.parse_decision(line)
 
 
 class ValidateFeaturesTests(unittest.TestCase):
@@ -233,7 +257,11 @@ class CliTests(unittest.TestCase):
             code, out = self.run_cli("bump", "--latest-tag", "v1.2.0", "--changed-paths-file", str(paths),
                                      "--labels", '["semver:minor","bug"]')
         self.assertEqual(code, 0)
-        self.assertEqual(out, "bump=minor\nversion=1.3.0\nreason=label semver:minor\n")
+        self.assertEqual(out, "bump=minor\nversion=1.3.0\nreason=label semver:minor\nprerelease=false\n")
+
+    def test_bump_deploy_manual_label_outputs_prerelease(self):
+        _, out = self.run_cli("bump", "--latest-tag", "v1.2.0", "--labels", "deploy:manual,semver:patch")
+        self.assertIn("prerelease=true\n", out)
 
     def test_bump_missing_features_before_file_means_none(self):
         with tempfile.TemporaryDirectory() as d:
@@ -247,9 +275,17 @@ class CliTests(unittest.TestCase):
     def test_combine_reads_decisions_file(self):
         with tempfile.TemporaryDirectory() as d:
             f = Path(d) / "decisions.txt"
-            f.write_text("patch label semver:patch\nminor new what's-new entry for PR #15\n", encoding="utf-8")
+            f.write_text("patch true label semver:patch\nminor false new what's-new entry for PR #15\n", encoding="utf-8")
             code, out = self.run_cli("combine", "--latest-tag", "v1.2.0", "--decisions-file", str(f))
-        self.assertEqual((code, out), (0, "bump=minor\nversion=1.3.0\nreason=new what's-new entry for PR #15\n"))
+        self.assertEqual((code, out), (0, "bump=minor\nversion=1.3.0\nreason=new what's-new entry for PR #15\n"
+                                          "prerelease=true\n"))
+
+    def test_combine_malformed_decisions_file_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "decisions.txt"
+            f.write_text("patch label semver:patch\n", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                self.run_cli("combine", "--latest-tag", "v1.2.0", "--decisions-file", str(f))
 
     def test_labels_comma_separated(self):
         self.assertEqual(rv._labels("semver:patch, semver:major"), ["semver:patch", " semver:major"])

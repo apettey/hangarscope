@@ -7,7 +7,7 @@ name: CI
 
 on:
   pull_request:
-    # labeled/unlabeled: a semver:* label changes the predicted version.
+    # labeled/unlabeled: a semver:* label changes the predicted version, deploy:manual makes it a prerelease.
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
@@ -60,12 +60,18 @@ jobs:
           VERSION: ${{ steps.bump.outputs.version }}
           BUMP: ${{ steps.bump.outputs.bump }}
           REASON: ${{ steps.bump.outputs.reason }}
+          PRERELEASE: ${{ steps.bump.outputs.prerelease }}
         run: |
           {
             echo "### Merging this PR would release v$VERSION"
             echo
             echo "**$BUMP** bump from ${LATEST:-no tag}: $REASON. Add a \`semver:major|minor|patch\` label to override."
             echo "If other PRs merge first, the version moves up accordingly."
+            if [ "$PRERELEASE" = "true" ]; then
+              echo
+              echo "\`deploy:manual\`: published as a **prerelease**; installed copies don't update to it until it is"
+              echo "promoted with \`gh release edit v$VERSION --prerelease=false\`."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   build:

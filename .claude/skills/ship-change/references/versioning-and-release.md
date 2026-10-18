@@ -18,7 +18,7 @@ There is no skip. Every merge to `master` is in a released version, every versio
 | `semver:major` | Breaking change |
 | `semver:minor` | New feature (even without a what's-new entry) |
 | `semver:patch` | Force patch (e.g. a what's-new entry for a small tweak) |
-| `deploy:manual` | The release must wait for work outside the artefact (section below) |
+| `deploy:manual` | Publish as a prerelease that installed copies ignore until it is promoted (section below) |
 
 ## How a release happens
 
@@ -29,23 +29,37 @@ Automatic on every push to `master` (`.github/workflows/release.yml`):
    the latest `v*` tag (first-parent commits): that merge's PR labels, its changed paths, and `features.json` before
    and after it (only an entry with a **new** `pr` counts as a feature). `release_version.py combine` takes the
    biggest of those bumps, so one PR's `semver:patch` can't downgrade another PR's feature, and prints `bump`,
-   `version` and `reason`. `release_version.py notes` builds the release notes from the
+   `version`, `reason` and `prerelease` (`true` if any of those PRs has `deploy:manual`). A failed PR label lookup
+   fails the run; labels are never treated as absent. `release_version.py notes` builds the release notes from the
    `docs/changelog/*/README.md` entries added since the tag (headings nested, relative links pinned to the
    commit), with new what's-new entries on top; with no entry (e.g. Dependabot) it lists the commit subjects.
 3. The `build` job calls the shared `apettey/eve-contracts/.github/workflows/build-windows-app.yml` with
-   `version` and `release-notes`: `dotnet test HangarScope.Tests`, `dotnet publish -p:Version=X.Y.Z`, zip,
-   Velopack pack (`Setup.exe` + full/delta packages). **Only after all of that succeeds** it creates the `vX.Y.Z`
-   tag on the built commit and publishes the GitHub Release with the zip, the Velopack files and the notes.
-4. Check the run is green and the release has the zip and Velopack packages. Installed copies auto-update from the
-   latest release. That is the deploy.
+   `version`, `release-tag: vX.Y.Z` and `prerelease`: `dotnet test HangarScope.Tests`,
+   `dotnet publish -p:Version=X.Y.Z`, zip, Velopack pack (`Setup.exe` + full/delta packages). **Only after all of
+   that succeeds** it creates the `vX.Y.Z` tag on the built commit and publishes the GitHub Release with the zip and
+   the Velopack files (a prerelease when `prerelease` is true). If publishing fails before a Release is out, it
+   deletes the tag it created and any draft, so the next run releases those changes again.
+4. The `finalize` job replaces the Release's generated notes with the ones from step 2
+   (`gh release edit vX.Y.Z --notes-file`).
+5. Check the run is green and the release has the zip and Velopack packages. Installed copies auto-update from the
+   latest non-prerelease release. That is the deploy.
 
 Releases run one at a time (`concurrency: release`). If merges queue up, GitHub drops the middle pending runs, but
 the next run still covers them: it decides per merge since the latest tag, the biggest bump wins and the notes list
-every entry. A push whose commit is already tagged is skipped (the tag's own run, or an earlier run, owns it). If
-publishing failed after the tag was pushed, the release is missing, a draft, or lacks the zip: run the workflow by
-hand on `master` (Actions → Release → Run workflow). A manual run on a tagged commit whose release isn't complete
-finishes that version on the same commit: the shared workflow reuses the tag, `vpk upload --merge`s into the
-existing release and publishes a draft. Push runs never do this, so they can't race a `release.ps1` tag build.
+every entry.
+
+Re-runs and manual runs:
+
+- **Re-run failed jobs** is always safe: the shared workflow reuses a tag that already points at this commit (and
+  refuses one on another commit) and doesn't upload Velopack packages again once the Release has a `*-full.nupkg`;
+  the zip is re-uploaded with `--clobber`. A failed `finalize` re-runs on its own.
+- A push whose commit is already tagged without a complete release (published, not a draft, with the zip) is
+  skipped: the tag's own run (`release.ps1`) or an earlier run owns it. If one is left like that, run the workflow by
+  hand on `master` (Actions → Release → Run workflow): on a tagged commit whose release isn't complete it finishes
+  that version on the same commit, with the same `deploy:manual` prerelease decision. Push runs never do this, so
+  they can't race a `release.ps1` tag build.
+- A run on a tagged commit whose release is complete only rewrites the notes (`finalize`).
+- `workflow_dispatch` only releases from `master`; on any other branch or a tag it does nothing.
 
 `<Version>` in `HangarScope.csproj` is only the local-build default; the latest tag is the version of record.
 
@@ -64,10 +78,21 @@ give.
 ### `deploy:manual`
 
 Use it when installed apps must not pick up the release until something outside the artefact is done, for example a
-new ESI scope that has to be added to the EVE developer application first. The release can't be held: merging
-releases straight away (`vpk upload github --publish`), and installed apps check for updates 30s after launch and
-every 6 hours (`Services/UpdateChecker.cs`). So do the outside work **before merging**, and don't merge anything else
-until that release is out. Nothing reads the label yet; it tells the person merging to wait.
+new ESI scope that has to be added to the EVE developer application first. The release is still versioned, built,
+tagged and published on merge, but as a **prerelease** (`vpk upload github --pre`, `gh release --prerelease`).
+Installed apps read only stable releases (`GithubSource(..., prerelease: false)` in `Services/UpdateChecker.cs`), so
+they don't update to it; new users can still download it from the Release page. Once the outside work is done,
+promote it:
+
+```
+gh release edit vX.Y.Z --prerelease=false
+```
+
+Installed apps pick it up on their next check (30s after launch, then every 6 hours). If any PR in a release has the
+label, the whole release is a prerelease. Merging more PRs before promoting releases them as newer versions on top;
+each one that has no `deploy:manual` itself is a normal release, which installed apps **do** update to, and it
+includes the held change. So don't merge anything else until the held release is promoted, or label those PRs
+`deploy:manual` too. PR CI's job summary says when a merge would publish a prerelease.
 
 ### Rollback
 
@@ -76,5 +101,4 @@ Velopack only moves forward, so don't delete the bad release's tag.
 
 ## Known gaps (automate later)
 
-- A real `deploy:manual` hold (publish the release as a draft, publish it later).
 - Optional: fail a PR that adds no folder under `docs/changelog/`.

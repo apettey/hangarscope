@@ -6,7 +6,8 @@ rules live in one tested place (tests: scripts/tests/test_release_version.py):
 
   latest-tag          read git tags on stdin, print the highest vX.Y.Z (empty if none)
   bump                work out the next version from the latest tag, changed paths and PR labels
-  combine             one version for several merges: the biggest of their per-merge bumps
+  combine             one version for several merges: the biggest of their per-merge bumps, and a
+                      prerelease if any of them carries deploy:manual
   notes               build GitHub Release notes from new docs/changelog entries and what's-new entries
   validate-features   check docs/whats-new/features.json (valid JSON, required fields, unique pr)
 
@@ -14,6 +15,8 @@ Bump rules (references/versioning-and-release.md in the ship-change skill):
   1. the biggest semver:* label wins;
   2. otherwise a new docs/whats-new/features.json entry means minor;
   3. otherwise patch. Major only ever comes from the semver:major label.
+A deploy:manual label publishes the release as a prerelease, which installed copies ignore until it is
+promoted (gh release edit vX.Y.Z --prerelease=false).
 
 Standard library only, so it runs on any GitHub runner without setup.
 """
@@ -33,6 +36,7 @@ CHANGELOG_DIR = "docs/changelog"
 BUMPS = ("patch", "minor", "major")
 TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 LABEL_RE = re.compile(r"^semver:(patch|minor|major)$")
+DEPLOY_MANUAL = "deploy:manual"
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -78,7 +82,9 @@ def decide_bump(
     features_before: str | None = None,
     features_after: str | None = None,
 ) -> dict[str, str]:
-    """Returns {'bump', 'version', 'reason'} for the next release.
+    """Returns {'bump', 'version', 'reason', 'prerelease'} for the next release.
+
+    prerelease is 'true' when the labels include deploy:manual, else 'false'.
 
     features_before/after are the features.json texts at the latest tag and at the new head. When
     given, only an entry with a new pr number counts as a feature (editing an old entry is a patch);
@@ -109,27 +115,45 @@ def decide_bump(
         reason = "no semver label and no new what's-new entry"
 
     version = ".".join(str(n) for n in apply_bump(base, bump))
-    return {"bump": bump, "version": version, "reason": reason}
+    prerelease = any(l.strip() == DEPLOY_MANUAL for l in labels)
+    return {"bump": bump, "version": version, "reason": reason, "prerelease": _flag(prerelease)}
 
 
-def combine_bumps(latest: str, decisions: list[tuple[str, str]]) -> dict[str, str]:
+def _flag(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def combine_bumps(latest: str, decisions: list[tuple[str, str, bool]]) -> dict[str, str]:
     """One release covering several merges (they queued up behind a running release).
 
-    decisions are each merge's own (bump, reason) from decide_bump, so a semver:patch label on one PR
-    can't downgrade another PR's new feature. The biggest bump wins; no merges still means a patch.
+    decisions are each merge's own (bump, reason, prerelease) from decide_bump, so a semver:patch label
+    on one PR can't downgrade another PR's new feature. The biggest bump wins; no merges still means a
+    patch. One deploy:manual merge makes the whole release a prerelease: its outside work isn't done.
     """
     base = parse_tag(latest) if latest else (0, 0, 0)
     if base is None:
         raise ValueError(f"latest tag '{latest}' is not vX.Y.Z")
     if not decisions:
-        decisions = [("patch", "no merges since the latest tag")]
-    for bump, _ in decisions:
+        decisions = [("patch", "no merges since the latest tag", False)]
+    for bump, _, _ in decisions:
         if bump not in BUMPS:
             raise ValueError(f"unknown bump '{bump}'")
     bump = max((d[0] for d in decisions), key=BUMPS.index)
-    reasons = list(dict.fromkeys(r for b, r in decisions if b == bump))
+    reasons = list(dict.fromkeys(r for b, r, _ in decisions if b == bump))
     version = ".".join(str(n) for n in apply_bump(base, bump))
-    return {"bump": bump, "version": version, "reason": "; ".join(reasons)}
+    prerelease = any(d[2] for d in decisions)
+    return {"bump": bump, "version": version, "reason": "; ".join(reasons), "prerelease": _flag(prerelease)}
+
+
+def parse_decision(line: str) -> tuple[str, str, bool]:
+    """One decisions-file line, '<bump> <prerelease true|false> <reason>', from a merge's bump run.
+
+    Strict, so a malformed line fails the release instead of quietly dropping a deploy:manual hold.
+    """
+    parts = line.strip().split(" ", 2)
+    if len(parts) < 2 or parts[1] not in ("true", "false"):
+        raise ValueError(f"decision line '{line.strip()}' is not '<bump> <true|false> <reason>'")
+    return (parts[0], parts[2] if len(parts) > 2 else "", parts[1] == "true")
 
 
 # ---- features.json ----
@@ -276,17 +300,17 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("latest-tag", help="read tags on stdin, print the highest vX.Y.Z")
 
-    b = sub.add_parser("bump", help="print bump=, version=, reason= lines")
+    b = sub.add_parser("bump", help="print bump=, version=, reason=, prerelease= lines")
     b.add_argument("--latest-tag", default="")
     b.add_argument("--changed-paths-file", help="file with one changed path per line")
     b.add_argument("--labels", default="", help="PR labels: JSON array or comma separated")
     b.add_argument("--features-before", help="features.json at the latest tag (missing file = no entries)")
     b.add_argument("--features-after", help="features.json at the new head")
 
-    c = sub.add_parser("combine", help="print bump=, version=, reason= for several merges")
+    c = sub.add_parser("combine", help="print bump=, version=, reason=, prerelease= for several merges")
     c.add_argument("--latest-tag", default="")
     c.add_argument("--decisions-file", required=True,
-                   help="one merge per line: '<bump> <reason>' (the bump= and reason= of its own bump run)")
+                   help="one merge per line: '<bump> <prerelease> <reason>' (from its own bump run)")
 
     n = sub.add_parser("notes", help="print release notes markdown")
     n.add_argument("--version", required=True)
@@ -315,14 +339,14 @@ def main(argv: list[str] | None = None) -> int:
             _read_optional(args.features_before),
             _read_optional(args.features_after),
         )
-        for k in ("bump", "version", "reason"):
+        for k in ("bump", "version", "reason", "prerelease"):
             print(f"{k}={result[k]}")
         return 0
 
     if args.cmd == "combine":
-        decisions = [tuple((l.split(" ", 1) + [""])[:2]) for l in _read_lines(args.decisions_file)]
+        decisions = [parse_decision(l) for l in _read_lines(args.decisions_file)]
         result = combine_bumps(args.latest_tag, decisions)
-        for k in ("bump", "version", "reason"):
+        for k in ("bump", "version", "reason", "prerelease"):
             print(f"{k}={result[k]}")
         return 0
 

@@ -85,14 +85,18 @@ are never skipped.
       `https://github.com/apettey/hangarscope/blob/<commit-sha>/<path>?raw=true` (pinned to a SHA so they survive
       branch deletion), the release-log link, a test summary, "Review rounds: K, last one clean", and the bump.
    4. Add a `semver:*` label if the default bump is wrong, `deploy:manual` if outside work (e.g. a new ESI scope
-      on the developer app) must be done before the release.
+      on the developer app) must be done before installed copies update: the release is then published as a
+      prerelease, which they ignore until it is promoted.
    5. CI must be green.
 9. **Merge, version, release.** Before merging, check CI's job summary: "Merging this PR would release vX.Y.Z"
    (minor if the PR adds a what's-new entry, otherwise patch, unless a `semver:*` label says otherwise). Merge with a
    merge commit. The Release workflow on `master` then tests, builds and packs that version and only then tags it
-   and publishes the GitHub Release with notes from the release log. Check the run is green and the release has the
-   zip and Velopack packages. If it failed before the tag, re-run it or merge a fix; if it failed after the tag, run
-   the Release workflow by hand on `master` (Actions → Release → Run workflow), which finishes that version.
+   and publishes the GitHub Release (a prerelease with `deploy:manual`), then sets its notes from the release log.
+   Check the run is green and the release has the zip and Velopack packages. If it failed, re-run the failed jobs
+   (safe: the tag on this commit is reused and published packages aren't uploaded again) or merge a fix; if a tag is
+   left without a complete release, run the Release workflow by hand on `master` (Actions → Release → Run
+   workflow), which finishes that version. For `deploy:manual`, promote the prerelease once the outside work is done:
+   `gh release edit vX.Y.Z --prerelease=false`.
    Details: [references/versioning-and-release.md](references/versioning-and-release.md).
 
 Copy-paste checklist for the PR or your notes: [references/checklist.md](references/checklist.md).
@@ -106,9 +110,10 @@ Copy-paste checklist for the PR or your notes: [references/checklist.md](referen
 - The what's-new entry is added after the review loop, so it gets its own review round before merge.
 - PR image links are pinned to a **commit SHA**.
 - A release only counts once the Release run has **published** its artefacts. The tag is created after the build,
-  so a failed build leaves no tag; if publishing fails after the tag push, running the workflow by hand
-  (`workflow_dispatch`) on `master` finishes that same version.
-- `deploy:manual` can't hold a release (merging publishes it right away and installed apps auto-update): finish the
-  outside work **before merging**.
+  so a failed build leaves no tag (a publish that fails before any Release is out removes the tag again); a tag left
+  without a complete release is finished by running the workflow by hand (`workflow_dispatch`) on `master`.
+- `deploy:manual` publishes a **prerelease**: installed copies (`prerelease: false` in `UpdateChecker`) ignore it
+  until `gh release edit vX.Y.Z --prerelease=false`. A later merge without the label is a normal release that
+  includes the held change, so merge nothing else until it is promoted (or label those PRs too).
 - Anything that writes to the game (saving or deleting in-game fittings) needs an explicit button plus an in-UI
   confirmation step, and fit sync saves the new copy before deleting the old one.

@@ -20,4 +20,4 @@ Release log: `docs/changelog/YYYY-MM-DD-<name>/`
 - [ ] Release-log entry: `docs/changelog/YYYY-MM-DD-<name>/` (with before/after if visible), row at the top of the index
 - [ ] Visible to users? `docs/whats-new/features.json` entry with this PR's number; README/FEATURES/screenshots updated
 - [ ] Review loop done: <N> rounds, last one with no findings
-- [ ] Version bump: default (what's-new entry = minor, everything else = patch) or a `semver:*` label; CI's job summary says "Merging this PR would release vX.Y.Z"
+- [ ] Version bump: default (what's-new entry = minor, everything else = patch) or a `semver:*` label; CI's job summary says "Merging this PR would release vX.Y.Z"; `deploy:manual` if installed copies must wait for outside work (publishes a prerelease)
