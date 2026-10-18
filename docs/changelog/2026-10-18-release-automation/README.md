@@ -17,10 +17,10 @@ which version a merge would release.
   `scripts/tests/test_release_version.py` (`python3 -m unittest discover -s scripts/tests`), run in both workflows.
 - `.github/workflows/release.yml`: on push to `master` computes the version and notes, then calls the shared
   `apettey/eve-contracts` `build-windows-app.yml` with the new `version` and `release-notes` inputs (which runs
-  `HangarScope.Tests`, publishes, packs, then tags and releases). A tag left without a release is finished by a
-  re-run. `v*` tag pushes still build the old way.
+  `HangarScope.Tests`, publishes, packs, then tags and releases). A tag left without a complete release is finished by
+  running the workflow by hand on `master`. `v*` tag pushes still build the old way.
 - Shared workflow (`apettey/eve-contracts`): new optional `version` and `release-notes` inputs (and reuse of this
-  commit's tag when an earlier run failed before publishing); callers that don't pass them (eve-contracts, multi-box, eve-k162-tracker) behave as before.
+  commit's tag, merging into its draft or incomplete release, when an earlier run failed after tagging); callers that don't pass them (eve-contracts, multi-box, eve-k162-tracker) behave as before.
 - `.github/workflows/ci.yml`: validates `features.json`, runs the script tests, writes "Merging this PR would release
   vX.Y.Z" to the job summary, runs `dotnet test HangarScope.slnx` and the win-x64 release publish, and checks that
   `release.ps1` finds the test projects.

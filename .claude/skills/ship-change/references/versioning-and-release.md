@@ -41,9 +41,11 @@ Automatic on every push to `master` (`.github/workflows/release.yml`):
 
 Releases run one at a time (`concurrency: release`). If merges queue up, GitHub drops the middle pending runs, but
 the next run still covers them: it decides per merge since the latest tag, the biggest bump wins and the notes list
-every entry. A push whose commit is already tagged **and** released is skipped. If publishing failed after the tag
-was pushed, the tag has no release: re-run the workflow on `master` and it finishes that version on the same commit
-(the shared workflow reuses a tag that points at the commit being built and has no release).
+every entry. A push whose commit is already tagged is skipped (the tag's own run, or an earlier run, owns it). If
+publishing failed after the tag was pushed, the release is missing, a draft, or lacks the zip: run the workflow by
+hand on `master` (Actions → Release → Run workflow). A manual run on a tagged commit whose release isn't complete
+finishes that version on the same commit: the shared workflow reuses the tag, `vpk upload --merge`s into the
+existing release and publishes a draft. Push runs never do this, so they can't race a `release.ps1` tag build.
 
 `<Version>` in `HangarScope.csproj` is only the local-build default; the latest tag is the version of record.
 
