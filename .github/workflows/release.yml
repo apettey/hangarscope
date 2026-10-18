@@ -1,18 +1,130 @@
-# Builds HangarScope for Windows via the shared reusable workflow in apettey/eve-contracts.
-# - push to master / manual run: zip in the run's Artifacts
-# - v* tag: zip attached to a GitHub Release
-# Feature and dependabot branches are verified by ci.yml (pull_request) instead, so they
-# don't each trigger a full Velopack pack here.
+# Every push to master is a release (AGENTS.md rule 5: no skip).
+#
+# 1. version: works out the next version with scripts/release_version.py from everything
+#    merged since the latest v* tag (labels of the merged PRs, then a new
+#    docs/whats-new/features.json entry, else patch) and builds the release notes from the
+#    docs/changelog entries added since then.
+# 2. build: the shared apettey/eve-contracts build-windows-app.yml runs HangarScope.Tests,
+#    publishes win-x64, packs Velopack, and only after all of that succeeds creates the
+#    vX.Y.Z tag on the built commit and publishes the GitHub Release. Installed apps
+#    auto-update from it.
+#
+# A pushed v* tag (manual fallback: scripts/release.ps1) still builds and publishes that tag
+# the old way; the master push that release.ps1 makes alongside it is skipped because its
+# commit is already tagged.
 name: Release
 
 on:
   push:
     branches: ["master"]
     tags: ["v*"]
-  workflow_dispatch:
+  workflow_dispatch: # on master: retry a failed release
+
+# One release at a time, never cancelled half-way. If several merges queue up, GitHub keeps
+# only the newest pending run; it still covers the skipped merges because the bump and notes
+# span everything since the latest tag (biggest bump wins).
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
+  version:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      skip: ${{ steps.bump.outputs.skip }}
+      version: ${{ steps.bump.outputs.version }}
+      notes: ${{ steps.notes.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tags and history since the latest tag
+
+      - name: Release script tests
+        run: python3 -m unittest discover -s scripts/tests
+
+      - name: Compute version
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -n "$(git tag --points-at HEAD --list 'v*')" ]; then
+            echo "HEAD is already tagged ($(git tag --points-at HEAD --list 'v*' | paste -sd' ' -)) - nothing to release."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest=$(git tag --list 'v*' | python3 scripts/release_version.py latest-tag)
+          range=${latest:+$latest..}HEAD
+          echo "LATEST=$latest" >> "$GITHUB_ENV"
+
+          if [ -n "$latest" ]; then
+            git diff --name-only "$latest" HEAD > "$RUNNER_TEMP/changed.txt"
+            git diff --name-only --diff-filter=A "$latest" HEAD > "$RUNNER_TEMP/added.txt"
+            git show "$latest:docs/whats-new/features.json" > "$RUNNER_TEMP/features-before.json" 2>/dev/null || true
+          else
+            git ls-files > "$RUNNER_TEMP/changed.txt"
+            cp "$RUNNER_TEMP/changed.txt" "$RUNNER_TEMP/added.txt"
+          fi
+          git log --format=%s --no-merges "$range" > "$RUNNER_TEMP/commits.txt"
+
+          # Labels of every PR merged into master since the latest tag (first-parent commits).
+          : > "$RUNNER_TEMP/labels.txt"
+          for sha in $(git rev-list --first-parent "$range"); do
+            gh api "repos/$REPO/commits/$sha/pulls" \
+              --jq ".[] | select(.merge_commit_sha == \"$sha\") | .labels[].name" >> "$RUNNER_TEMP/labels.txt"
+          done
+          labels=$(sort -u "$RUNNER_TEMP/labels.txt" | paste -sd, -)
+          echo "PR labels: ${labels:-none}"
+
+          python3 scripts/release_version.py bump \
+            --latest-tag "$latest" \
+            --changed-paths-file "$RUNNER_TEMP/changed.txt" \
+            --labels "$labels" \
+            --features-before "$RUNNER_TEMP/features-before.json" \
+            --features-after docs/whats-new/features.json | tee -a "$GITHUB_OUTPUT"
+
+      - name: Release notes
+        id: notes
+        if: steps.bump.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+          BUMP: ${{ steps.bump.outputs.bump }}
+          REASON: ${{ steps.bump.outputs.reason }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release_version.py notes \
+            --version "$VERSION" \
+            --added-paths-file "$RUNNER_TEMP/added.txt" \
+            --repo "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" \
+            --features-before "$RUNNER_TEMP/features-before.json" \
+            --features-after docs/whats-new/features.json \
+            --commits-file "$RUNNER_TEMP/commits.txt" > "$RUNNER_TEMP/notes.md"
+          delim="NOTES_$(openssl rand -hex 12)" # random, so no line of the notes can end the value
+          {
+            echo "notes<<$delim"
+            cat "$RUNNER_TEMP/notes.md"
+            echo "$delim"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "## Releasing v$VERSION"
+            echo
+            echo "**$BUMP** ($REASON), changes since ${LATEST:-the first commit}."
+            echo
+            cat "$RUNNER_TEMP/notes.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Master pushes: test, build and pack, then tag and release the computed version.
   build:
+    needs: version
+    if: needs.version.outputs.skip != 'true'
     uses: apettey/eve-contracts/.github/workflows/build-windows-app.yml@main
     permissions:
       contents: write
@@ -20,3 +132,18 @@ jobs:
       project: HangarScope/HangarScope.csproj
       app-name: HangarScope
       main-exe: HangarScope.exe
+      test-project: HangarScope.Tests/HangarScope.Tests.csproj
+      version: ${{ needs.version.outputs.version }}
+      release-notes: ${{ needs.version.outputs.notes }}
+
+  # v* tag pushes (manual fallback): the shared workflow takes the version from the tag.
+  build-tag:
+    if: github.ref_type == 'tag'
+    uses: apettey/eve-contracts/.github/workflows/build-windows-app.yml@main
+    permissions:
+      contents: write
+    with:
+      project: HangarScope/HangarScope.csproj
+      app-name: HangarScope
+      main-exe: HangarScope.exe
+      test-project: HangarScope.Tests/HangarScope.Tests.csproj

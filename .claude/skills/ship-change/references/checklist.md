@@ -27,5 +27,5 @@
 - [ ] PR body: what/why, SHA-pinned before/after, release-log link, tests, review rounds
 - [ ] semver:* label if the default is wrong; deploy:manual if outside work must happen before release
 - [ ] CI green, merged with a merge commit
-- [ ] `dotnet test HangarScope.slnx` then `.\scripts\release.ps1 <bump>` run on master; tag build green; GitHub Release has zip + Velopack packages
+- [ ] Release run on master green; GitHub Release vX.Y.Z (the version CI predicted) has zip + Velopack packages
 ```
