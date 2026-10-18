@@ -59,7 +59,7 @@ jobs:
 
       - name: Compute version
         id: next
-        uses: apettey/eve-contracts/.github/actions/next-version@main
+        uses: apettey/eve-contracts/.github/actions/next-version@3bdd873c355fe42dfe926c52dab0a4c6713dec0e # v1.1.5
         with:
           features-path: docs/whats-new/features.json
           changelog-dir: docs/changelog
@@ -70,7 +70,7 @@ jobs:
   build:
     needs: version
     if: needs.version.outputs.release == 'true'
-    uses: apettey/eve-contracts/.github/workflows/build-windows-app.yml@main
+    uses: apettey/eve-contracts/.github/workflows/build-windows-app.yml@3bdd873c355fe42dfe926c52dab0a4c6713dec0e # v1.1.5
     permissions:
       contents: write
     with:
@@ -94,7 +94,7 @@ jobs:
       contents: write # gh release edit
     steps:
       - name: Release notes and state
-        uses: apettey/eve-contracts/.github/actions/finalize-release@main
+        uses: apettey/eve-contracts/.github/actions/finalize-release@3bdd873c355fe42dfe926c52dab0a4c6713dec0e # v1.1.5
         with:
           tag: ${{ needs.version.outputs.tag }}
           notes: ${{ needs.version.outputs.notes }}

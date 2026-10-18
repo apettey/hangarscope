@@ -33,7 +33,7 @@ jobs:
 
       # The shared validator from apettey/eve-contracts. Image paths are relative to docs/whats-new.
       - name: Validate features.json
-        uses: apettey/eve-contracts/.github/actions/validate-features@main
+        uses: apettey/eve-contracts/.github/actions/validate-features@3bdd873c355fe42dfe926c52dab0a4c6713dec0e # v1.1.5
         with:
           path: docs/whats-new/features.json
           images-root: docs/whats-new
@@ -47,7 +47,7 @@ jobs:
       # prediction matches what merging releases (job summary: "Merging this PR would release vX.Y.Z").
       - name: Predict version
         id: preview
-        uses: apettey/eve-contracts/.github/actions/next-version@main
+        uses: apettey/eve-contracts/.github/actions/next-version@3bdd873c355fe42dfe926c52dab0a4c6713dec0e # v1.1.5
         with:
           mode: pr
           base: HEAD^1
