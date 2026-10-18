@@ -1,6 +1,8 @@
-# Release script: bump the csproj <Version>, test, commit, tag, push.
-# The pushed v* tag triggers CI, which builds the Velopack installer + update
-# packages and publishes them to a GitHub Release; installed apps then auto-update.
+# Manual release fallback: bump the csproj <Version>, test, commit, tag, push.
+# Normally not needed: every push to master is released by .github/workflows/release.yml.
+# Use this only when that workflow can't run. The pushed v* tag triggers release.yml,
+# which builds the Velopack installer + update packages and publishes them to a GitHub
+# Release; installed apps then auto-update.
 #
 # Usage:
 #   .\scripts\release.ps1                # patch bump  (1.2.3 -> 1.2.4)
@@ -9,19 +11,33 @@
 #   .\scripts\release.ps1 1.4.0         # explicit version
 #   .\scripts\release.ps1 -NoTest       # skip tests
 #   .\scripts\release.ps1 -Watch        # follow the CI run after pushing
+#   .\scripts\release.ps1 -ListTests    # print the test projects it would run and exit (CI checks this)
 #
 # Works in any repo whose app csproj contains a <Version> property (auto-detected).
 param(
     [string]$Bump = "patch",
     [string]$Project = "",
     [switch]$NoTest,
-    [switch]$Watch
+    [switch]$Watch,
+    [switch]$ListTests
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = git rev-parse --show-toplevel
 if ($LASTEXITCODE -ne 0) { throw "Not inside a git repository." }
 Set-Location $repoRoot
+
+# Test projects either live under a test/tests folder or are named *.Test(s).csproj
+# (HangarScope.Tests/HangarScope.Tests.csproj).
+function Get-TestProjects {
+    Get-ChildItem -Recurse -Filter *.csproj |
+        Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' -and $_.Name -notmatch 'Bench' } |
+        Where-Object { $_.FullName -match '[\\/]tests?[\\/]' -or $_.Name -match '\.Tests?\.csproj$' }
+}
+if ($ListTests) {
+    Get-TestProjects | ForEach-Object { [IO.Path]::GetRelativePath($repoRoot, $_.FullName) }
+    exit 0
+}
 
 # ---- locate the versioned csproj ----
 if (-not $Project) {
@@ -35,6 +51,14 @@ if (-not $Project) {
 $raw = Get-Content $Project -Raw
 if ($raw -notmatch '<Version>(\d+)\.(\d+)\.(\d+)</Version>') { throw "$Project has no <Version>x.y.z</Version> property." }
 $cur = [version]("{0}.{1}.{2}" -f $Matches[1], $Matches[2], $Matches[3])
+# release.yml tags releases without committing a csproj bump, so the latest v* tag can be
+# ahead of <Version>: bump from whichever is higher.
+git fetch -q --tags origin
+$latestTag = git tag --list 'v*' |
+    Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } |
+    ForEach-Object { [version]$_.Substring(1) } |
+    Sort-Object -Descending | Select-Object -First 1
+if ($latestTag -and $latestTag -gt $cur) { $cur = $latestTag }
 
 # ---- compute the new version ----
 switch -Regex ($Bump) {
@@ -61,8 +85,8 @@ if (git tag -l $tag) { throw "Tag $tag already exists." }
 
 # ---- tests ----
 if (-not $NoTest) {
-    $tests = Get-ChildItem -Recurse -Filter *.csproj |
-        Where-Object { $_.FullName -match '\\tests?\\' -and $_.FullName -notmatch '\\(bin|obj)\\' -and $_.Name -notmatch 'Bench' }
+    $tests = @(Get-TestProjects)
+    if (-not $tests) { throw "No test projects found - pass -NoTest to release without tests." }
     foreach ($t in $tests) {
         Write-Host "Testing $($t.Name)..." -ForegroundColor Cyan
         dotnet test $t.FullName -c Release --nologo -v q

@@ -36,12 +36,12 @@ repo-specific review rules in [references/review-loop.md](references/review-loop
 | Run (demo data, no credentials) | `dotnet run --project HangarScope -- --demo` |
 | Screenshot | `HangarScope.exe --demo --screen=<tab> --snapshot=<path>.png` (renders the window to PNG at a fixed size and exits; REFIT views: `--refit-mode=fittings`, `--refit-scroll=orders\|lists`, `--fit-sync=<fit name part> [--fit-sync-pick=all]`, `--fit-tidy=<fit name part>`, `--fit-expand=all`) |
 | Tests | `HangarScope.Tests/` · `dotnet test HangarScope.slnx` |
-| Release artefact | `dotnet publish HangarScope/HangarScope.csproj -c Release -r win-x64 --self-contained true -o publish` (PR CI does **not** run this; the local run is the only check before merge) |
+| Release artefact | `dotnet publish HangarScope/HangarScope.csproj -c Release -r win-x64 --self-contained true -o publish` (PR CI runs it too) |
 | Release log | `docs/changelog/` (index `README.md`, template `TEMPLATE.md`) |
 | What's new | `docs/whats-new/features.json` · images `docs/whats-new/img/` |
 | Feature docs | `README.md`, `docs/FEATURES.md`, `docs/screenshots/` (kebab-case PNGs) |
 | Version source | `<Version>` in `HangarScope/HangarScope.csproj` |
-| Release | `.github/workflows/release.yml` builds on a `v*` tag; `scripts/release.ps1 <patch\|minor\|major>` bumps, tags and pushes (manual until a bump workflow exists) |
+| Release | `.github/workflows/release.yml` on every push to `master`: version from `scripts/release_version.py` (tests in `scripts/tests/`), build + pack via the shared `apettey/eve-contracts` workflow, then tag + GitHub Release. `scripts/release.ps1` is a manual fallback only |
 | Deploy target | GitHub Release with the Velopack installer + delta packages; installed apps auto-update from it |
 | Repo / PR URLs | `apettey/hangarscope` |
 
@@ -85,13 +85,19 @@ are never skipped.
       `https://github.com/apettey/hangarscope/blob/<commit-sha>/<path>?raw=true` (pinned to a SHA so they survive
       branch deletion), the release-log link, a test summary, "Review rounds: K, last one clean", and the bump.
    4. Add a `semver:*` label if the default bump is wrong, `deploy:manual` if outside work (e.g. a new ESI scope
-      on the developer app) must be done before the release.
+      on the developer app) must be done before installed copies update: the release is then published as a
+      prerelease, which they ignore until it is promoted.
    5. CI must be green.
-9. **Merge, version, release.** Merge with a merge commit. Then, on an up-to-date `master`, run
-   `dotnet test HangarScope.slnx` (the script's own test step misses `HangarScope.Tests`), then
-   `.\scripts\release.ps1 <bump>`: minor if the PR added a what's-new entry, otherwise patch, unless a label says
-   otherwise. Release each merge before merging the next PR. Check the tag's Release run published the zip and Velopack packages and the GitHub Release exists.
-   Details and the gaps still done by hand: [references/versioning-and-release.md](references/versioning-and-release.md).
+9. **Merge, version, release.** Before merging, check CI's job summary: "Merging this PR would release vX.Y.Z"
+   (minor if the PR adds a what's-new entry, otherwise patch, unless a `semver:*` label says otherwise). Merge with a
+   merge commit. The Release workflow on `master` then tests, builds and packs that version and only then tags it
+   and publishes the GitHub Release (a prerelease with `deploy:manual`), then sets its notes from the release log.
+   Check the run is green and the release has the zip and Velopack packages. If it failed, re-run the failed jobs
+   (safe while no newer version is out: the tag on this commit is reused and published packages aren't uploaded
+   again) or merge a fix; if a tag is left without a complete release, run the Release workflow by hand on `master`
+   (Actions → Release → Run workflow), which finishes that version ("Re-run all jobs" doesn't). For `deploy:manual`, promote the prerelease once the outside work is done:
+   `gh release edit vX.Y.Z --prerelease=false`.
+   Details: [references/versioning-and-release.md](references/versioning-and-release.md).
 
 Copy-paste checklist for the PR or your notes: [references/checklist.md](references/checklist.md).
 
@@ -103,9 +109,11 @@ Copy-paste checklist for the PR or your notes: [references/checklist.md](referen
   `docs/changelog/README.md` and `features.json` are still at the top.
 - The what's-new entry is added after the review loop, so it gets its own review round before merge.
 - PR image links are pinned to a **commit SHA**.
-- A GitHub Release only counts once the tag build has **published** its artefacts. If the build fails, fix forward
-  with a new patch version; don't leave a release without packages.
-- `deploy:manual` can't hold a tagged release (it publishes right away and installed apps auto-update): finish the
-  outside work before running `release.ps1`.
+- A release only counts once the Release run has **published** its artefacts. The tag is created after the build,
+  so a failed build leaves no tag (a publish that fails before any Release is out removes the tag again); a tag left
+  without a complete release is finished by running the workflow by hand (`workflow_dispatch`) on `master`.
+- `deploy:manual` publishes a **prerelease**: installed copies (`prerelease: false` in `UpdateChecker`) ignore it
+  until `gh release edit vX.Y.Z --prerelease=false`. A later merge without the label is a normal release that
+  includes the held change, so merge nothing else until it is promoted (or label those PRs too).
 - Anything that writes to the game (saving or deleting in-game fittings) needs an explicit button plus an in-UI
   confirmation step, and fit sync saves the new copy before deleting the old one.

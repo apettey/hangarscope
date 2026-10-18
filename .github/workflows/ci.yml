@@ -1,16 +1,81 @@
-# Builds (and tests, if any test projects exist) every pull request, so Dependabot's
-# dependency-bump PRs are verified before merge. Pushes to master are covered by
-# release.yml (which compiles + packs), so CI does not duplicate that here.
+# Pull request gate (Dependabot's included). Merging to master releases straight away
+# (release.yml), so this proves the PR is releasable:
+# - release: the release script's tests, docs/whats-new/features.json validation, and the
+#   version this PR would release (job summary)
+# - build: build, HangarScope.Tests and the win-x64 release publish
 name: CI
 
 on:
   pull_request:
+    # labeled/unlabeled: a semver:* label changes the predicted version, deploy:manual makes it a prerelease.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
 
+# A newer push or label change on the same PR cancels the in-flight run.
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tags and the merge base
+
+      - name: Release script tests
+        run: python3 -m unittest discover -s scripts/tests -v
+
+      - name: Validate features.json
+        run: python3 scripts/release_version.py validate-features docs/whats-new/features.json
+
+      - name: Predict version
+        id: bump
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+          latest=$(git tag --list 'v*' | python3 scripts/release_version.py latest-tag)
+          base=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
+          git diff --name-only "$base" "$HEAD_SHA" > "$RUNNER_TEMP/changed.txt"
+          git show "$base:docs/whats-new/features.json" > "$RUNNER_TEMP/features-before.json" 2>/dev/null || true
+          git show "$HEAD_SHA:docs/whats-new/features.json" > "$RUNNER_TEMP/features-after.json" 2>/dev/null || true
+          python3 scripts/release_version.py bump \
+            --latest-tag "$latest" \
+            --changed-paths-file "$RUNNER_TEMP/changed.txt" \
+            --labels "$LABELS" \
+            --features-before "$RUNNER_TEMP/features-before.json" \
+            --features-after "$RUNNER_TEMP/features-after.json" | tee -a "$GITHUB_OUTPUT"
+          echo "LATEST=$latest" >> "$GITHUB_ENV"
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+          BUMP: ${{ steps.bump.outputs.bump }}
+          REASON: ${{ steps.bump.outputs.reason }}
+          PRERELEASE: ${{ steps.bump.outputs.prerelease }}
+        run: |
+          {
+            echo "### Merging this PR would release v$VERSION"
+            echo
+            echo "**$BUMP** bump from ${LATEST:-no tag}: $REASON. Add a \`semver:major|minor|patch\` label to override."
+            echo "If other PRs merge first, the version moves up accordingly."
+            if [ "$PRERELEASE" = "true" ]; then
+              echo
+              echo "\`deploy:manual\`: published as a **prerelease**; installed copies don't update to it until it is"
+              echo "promoted with \`gh release edit v$VERSION --prerelease=false\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   build:
+    needs: release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -22,17 +87,19 @@ jobs:
       - name: Build
         run: dotnet build HangarScope/HangarScope.csproj -c Release --nologo
 
-      # Runs every test project (today: HangarScope.Tests, the REFIT planner and EFT format tests).
-      # Convention: test projects are named *.Test.csproj / *.Tests.csproj.
       - name: Test
-        shell: bash
+        run: dotnet test HangarScope.slnx -c Release --nologo
+
+      # The manual fallback scripts/release.ps1 must find HangarScope.Tests.
+      - name: release.ps1 finds the test projects
         run: |
-          mapfile -t tests < <(git ls-files '*.[Tt]est.csproj' '*.[Tt]ests.csproj')
-          if [ ${#tests[@]} -eq 0 ]; then
-            echo "No test projects found — skipping."
-            exit 0
-          fi
-          for t in "${tests[@]}"; do
-            echo "Testing $t"
-            dotnet test "$t" -c Release --nologo
-          done
+          $found = @(./scripts/release.ps1 -ListTests)
+          $found
+          if ($found -notcontains 'HangarScope.Tests\HangarScope.Tests.csproj') { throw 'release.ps1 does not find HangarScope.Tests' }
+
+      # The same publish the release build runs (shared build-windows-app.yml), with the
+      # version this PR would release.
+      - name: Publish win-x64
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: dotnet publish HangarScope/HangarScope.csproj -c Release -r win-x64 --self-contained true "-p:Version=$env:VERSION" -o publish --nologo
