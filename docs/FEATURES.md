@@ -26,7 +26,7 @@ Pick the ships you want to standardise, set one target fit, and REFIT works out 
 **Rail**
 
 - **Ships** — every assembled ship across all pilots, filtered by hull, ship name or pilot. Click to add a ship to the plan; selected ships get column keys A, B, C… The list is virtualized.
-- **Target fit** — **IN-GAME FIT ▾** picks any fitting saved in game by any pilot, **PASTE EFT** imports the in-game "Copy to clipboard" format (unknown names are resolved with `POST /universe/ids/`), **COPY SHIP ▾** copies one selected ship, **UNION OF ALL** takes the most of every module across the selected ships, **CLEAR** starts over, **COPY EFT** exports the target. The fit name is editable.
+- **Target fit** — **IN-GAME FIT ▾** opens the [fit picker](#fit-picker) on any fitting saved in game by any pilot, **PASTE EFT** imports the in-game "Copy to clipboard" format (unknown names are resolved with `POST /universe/ids/`), **COPY SHIP ▾** copies one selected ship, **UNION OF ALL** takes the most of every module across the selected ships, **CLEAR** starts over, **COPY EFT** exports the target. The fit name is editable.
 - **Save target to pilots…** — opens the pilot picker (see [Sync to…](#sync-to--pick-pilots-replace-outdated-copies)) for the target fit. Nothing is written until you press **CONFIRM · WRITE IN GAME** in the confirmation bar.
 - **New hulls to buy** — a stepper and a pilot. New hulls are empty ships filled last; the hull goes on the shopping list.
 - **Where modules can come from** — modules stripped from the selected ships; unfitted stock in hangars, containers and cargo; other pilots' items (needs a contract — turn it off to buy instead).
@@ -60,11 +60,33 @@ Implemented in [`Services/RefitPlanner.cs`](../HangarScope/Services/RefitPlanner
 
 ![Fittings library](screenshots/fittings-library.png)
 
-REFIT → **FITTINGS LIBRARY** merges every pilot's saved in-game fittings. Identical fits on several pilots (same hull and modules, any name) are one row, with a dot per pilot (filled = has it), how many pilots are missing it and how many hold an outdated copy.
+REFIT → **FITTINGS LIBRARY** shows every pilot's saved in-game fittings in the [fit picker](#fit-picker). Each entry shows a dot per pilot (filled = has it), how many pilots are missing it and how many hold an outdated copy. The preview's buttons act on the highlighted fit:
 
-- **USE AS TARGET** loads the fit into the plan.
+- **USE AS TARGET** loads the fit into the plan (also Enter or double-click).
 - **SYNC TO…** opens the pilot picker for that fit.
-- **DELETE** removes every copy of the fit from the game.
+- **TIDY DUPLICATES** removes extra identical copies (see below).
+- **DELETE ALL COPIES** removes every copy of the fit from the game.
+
+### Fit picker
+
+![Fit picker](screenshots/fit-picker.png)
+
+The same picker sits in the **IN-GAME FIT ▾** flyout (compact: no tidy or delete) and the FITTINGS library.
+
+- **Search** matches fit names, the hull and every module or item name. Every word must match something; name matches rank first, then hull, then item matches.
+- **Hull chips** show how many fits each hull has. With ships selected in the rail, the chips start on their hulls; **ALL** clears the filter.
+- **Sort** by **NAME**, **MOST PILOTS** or **NEWEST** (highest fitting id).
+- **Keyboard**: ↑ / ↓ (and Page Up / Down) move the highlight from the search box, Enter uses the fit as the target.
+- The list is virtualized, so a pilot with hundreds of saved fits stays responsive.
+- **Merged fits**: identical fits (same hull and items, any name) are one entry listing every name it is saved under and every pilot that has it.
+- **Variants**: fits whose module slots match but whose cargo or drones differ, and same-named fits on the same hull with other contents, are grouped under one entry marked e.g. "2 VARIANTS · CARGO DIFFERS". ▸ expands them; each variant shows what it adds or lacks compared with the main fit (the one on the most pilots).
+- **Preview**: names, variant note, slot summary (HIGH, MED, LOW, RIG, SUBSYSTEM, DRONES, CARGO) and which pilots have it, how many copies, or a variant.
+
+### Tidy duplicates
+
+![Tidy duplicates](screenshots/fittings-tidy.png)
+
+**TIDY DUPLICATES** (enabled when a pilot holds two or more identical copies) opens the pilot picker in tidy mode. Pilots with duplicates start ticked; pilots without the write scope are disabled. **EACH PILOT KEEPS THE COPY NAMED** picks which name survives; a pilot without a copy of that name keeps its newest copy. The plan line and the confirmation bar list every copy that will be deleted (name and fitting id) and the copy each pilot keeps. Only identical copies are deleted; variants are never touched. Results are reported per pilot.
 
 Sync and delete only run after the confirmation bar's **CONFIRM · WRITE IN GAME**. ESI cannot edit a saved fit in place, so a changed fit is saved as a new copy (and the old one deleted if you replace it).
 
@@ -136,4 +158,4 @@ One card per character:
 - **Hull slots** — slot counts per hull come from the type's dogma attributes and are cached with the type in `universe.json`.
 - **Prices** — per-type regional order books; best sell at the hub station, best regional buy.
 - **Diagnostics** — sync events log to `%APPDATA%\HangarScope\sync.log`, UI timings to `perf.log`.
-- **Demo mode** — `--demo` forces the prototype dataset (it includes four fitted Paladins, saved fittings (one with an outdated same-named copy) and spare modules for REFIT). Screenshot automation flags: `--screen=<assets|refit|dash|wallet|loc|auth|settings>` opens on a given tab, `--refit-mode=fittings` opens the FITTINGS library, `--refit-scroll=<orders|lists>` scrolls the plan, `--fit-sync=<name part>` opens the SYNC TO picker on that saved fit (`--fit-sync-pick=all` ticks every selectable pilot), and `--snapshot=<file.png>` renders the window to a PNG and exits.
+- **Demo mode** — `--demo` forces the prototype dataset (it includes four fitted Paladins, saved fittings (an outdated same-named copy, a duplicate under another name, and cargo and drone variants) and spare modules for REFIT). Screenshot automation flags: `--screen=<assets|refit|dash|wallet|loc|auth|settings>` opens on a given tab, `--refit-mode=fittings` opens the FITTINGS library, `--refit-scroll=<orders|lists>` scrolls the plan, `--fit-sync=<name part>` opens the SYNC TO picker on that saved fit (`--fit-sync-pick=all` ticks every selectable pilot), `--fit-tidy=<name part>` opens TIDY DUPLICATES on it, `--fit-expand=all` expands every variant group, `--fit-flyout` opens the IN-GAME FIT ▾ flyout (a separate popup, so `--snapshot` does not capture it), and `--snapshot=<file.png>` renders the window to a PNG and exits.

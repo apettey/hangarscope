@@ -13,8 +13,14 @@ public sealed partial class MainViewModel
     private List<FitCopyStatus> _fitSyncStatuses = new();
     private readonly HashSet<long> _fitSyncSel = new();
     private bool _replaceOutdated = true;
+    private readonly HashSet<long> _fitSyncPickable = new();
+    // TIDY DUPLICATES mode: same picker, deletes a pilot's extra identical copies
+    private FitGroup? _tidyGroup;
+    private string _tidyKeepName = "";
+    private int _tidyKeepIndex;
 
     // --fit-sync=<name part> opens the picker on that library fit, --fit-sync-pick=all ticks every pilot (doc screenshot automation)
+    private string? _autoFitTidy = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--fit-tidy="))?["--fit-tidy=".Length..];
     private string? _autoFitSync = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--fit-sync="))?["--fit-sync=".Length..];
 
     [ObservableProperty] private bool _isFitSyncOpen;
@@ -26,6 +32,20 @@ public sealed partial class MainViewModel
     [ObservableProperty] private bool _hasFitSyncResults;
     [ObservableProperty] private string _fitSyncResultsTitle = "";
     [ObservableProperty] private List<FitSyncResultVm> _fitSyncResults = new();
+    [ObservableProperty] private bool _isTidyMode;
+    [ObservableProperty] private List<string> _tidyNameOptions = new();
+
+    /// <summary>Which of the fit's names each tidied pilot keeps.</summary>
+    public int TidyKeepIndex
+    {
+        get => _tidyKeepIndex;
+        set
+        {
+            if (!SetProperty(ref _tidyKeepIndex, value) || value < 0 || value >= TidyNameOptions.Count) return;
+            _tidyKeepName = TidyNameOptions[value];
+            RebuildFitSync();
+        }
+    }
 
     public bool ReplaceOutdated
     {
@@ -40,6 +60,8 @@ public sealed partial class MainViewModel
         _pendingWrite = null;
         HasPendingWrite = false;
         HasFitSyncResults = false;
+        _tidyGroup = null;
+        IsTidyMode = false;
         _fitSyncFit = fit;
         _fitSyncSel.Clear();
         _fitSyncSel.UnionWith(FitSync.DefaultSelection(Classify(fit)));
@@ -53,10 +75,13 @@ public sealed partial class MainViewModel
     /// <summary>Re-reads every character's state from the current snapshot; called on open, on each tick and after syncs.</summary>
     private void RebuildFitSync()
     {
+        if (_tidyGroup != null) { RebuildTidy(); return; }
         var fit = _fitSyncFit;
         if (fit == null) return;
         var statuses = _fitSyncStatuses = Classify(fit);
-        _fitSyncSel.IntersectWith(statuses.Where(s => s.Selectable).Select(s => s.CharId));
+        _fitSyncPickable.Clear();
+        _fitSyncPickable.UnionWith(statuses.Where(s => s.Selectable).Select(s => s.CharId));
+        _fitSyncSel.IntersectWith(_fitSyncPickable);
         var chars = _snap.Characters.ToDictionary(c => c.Id);
 
         FitSyncTitle = $"SYNC “{fit.Name}” TO…".ToUpperInvariant();
@@ -99,7 +124,7 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private void FitSyncAll()
     {
-        _fitSyncSel.UnionWith(_fitSyncStatuses.Where(s => s.Selectable).Select(s => s.CharId));
+        _fitSyncSel.UnionWith(_fitSyncPickable);
         RebuildFitSync();
     }
 
@@ -115,6 +140,7 @@ public sealed partial class MainViewModel
     {
         IsFitSyncOpen = false;
         _fitSyncFit = null;
+        _tidyGroup = null;
     }
 
     [RelayCommand] private void DismissFitSyncResults() => HasFitSyncResults = false;
@@ -122,6 +148,7 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private void ReviewFitSync()
     {
+        if (_tidyGroup != null) { ReviewTidy(); return; }
         var fit = _fitSyncFit;
         if (fit == null) return;
         var steps = FitSync.Plan(_fitSyncStatuses, _fitSyncSel, _replaceOutdated);
@@ -151,16 +178,116 @@ public sealed partial class MainViewModel
                 var (ok, msg) = await _sync.DeleteFitting(id, fittingId);
                 return (ok, StripName(msg, Name(id)));
             });
+        ShowResults($"SYNC “{fit.Name}”", results, chars);
+    }
+
+    // ------------------------------------------------------------------ tidy duplicates
+
+    private void OpenTidy(FitGroup group)
+    {
+        _pendingWrite = null;
+        HasPendingWrite = false;
+        HasFitSyncResults = false;
+        _fitSyncFit = null;
+        _tidyGroup = group;
+        IsTidyMode = true;
+        _tidyKeepName = group.Name;
+        TidyNameOptions = group.Names.ToList();
+        _tidyKeepIndex = 0;
+        OnPropertyChanged(nameof(TidyKeepIndex));
+        var chars = _snap.Characters.ToDictionary(c => c.Id);
+        _fitSyncSel.Clear();
+        _fitSyncSel.UnionWith(group.Copies.GroupBy(c => c.CharId)
+            .Where(g => g.Count() > 1 && chars.TryGetValue(g.Key, out var c) && FitSync.CanWrite(c)).Select(g => g.Key));
+        IsFitSyncOpen = true;
+        RebuildFitSync();
+    }
+
+    /// <summary>The group as it stands in the current snapshot (copies disappear as they are deleted).</summary>
+    private FitGroup CurrentTidyGroup(FitGroup g) =>
+        FitCatalog.Group(_snap.Fittings.Where(f => f.ShipTypeId == g.ShipTypeId)).FirstOrDefault(x => x.Hash == g.Hash)
+        ?? new FitGroup { Hash = g.Hash, ShipTypeId = g.ShipTypeId, SlotHash = g.SlotHash, Copies = new(), Names = g.Names };
+
+    private void RebuildTidy()
+    {
+        var g = CurrentTidyGroup(_tidyGroup!);
+        var chars = _snap.Characters.ToDictionary(c => c.Id);
+        var byChar = g.Copies.ToLookup(c => c.CharId);
+        _fitSyncPickable.Clear();
+        _fitSyncPickable.UnionWith(_snap.Characters.Where(c => byChar[c.Id].Count() > 1 && FitSync.CanWrite(c)).Select(c => c.Id));
+        _fitSyncSel.IntersectWith(_fitSyncPickable);
+        FitSyncTitle = $"TIDY DUPLICATES OF “{_tidyGroup!.Name}”".ToUpperInvariant();
+        FitSyncSub = $"{_typeName(g.ShipTypeId)} · only identical copies are deleted; variants with other cargo, drones or modules are never touched";
+        FitSyncHasOutdated = false;
+        FitSyncPilots = _snap.Characters.Select(c =>
+        {
+            var n = byChar[c.Id].Count();
+            var (text, brush) = n > 1 && !FitSync.CanWrite(c) ? ("NO FITTINGS SCOPE", StNoScope)
+                : n > 1 ? ($"{n} COPIES · DELETE {n - 1}", StOld)
+                : n == 1 ? ("1 COPY · NOTHING TO TIDY", StHas)
+                : ("NOT SAVED", StDim);
+            var hint = n > 1 && !FitSync.CanWrite(c) ? "Re-link in CHARACTERS to grant " + EsiScopes.FittingsWrite : "";
+            var id = c.Id;
+            return new FitSyncPilotVm(c.Name, B(c.Color), text, brush, hint, _fitSyncPickable.Contains(id), _fitSyncSel.Contains(id),
+                new RelayCommand(() =>
+                {
+                    if (!_fitSyncSel.Remove(id)) _fitSyncSel.Add(id);
+                    RebuildFitSync();
+                }));
+        }).ToList();
+        FitSyncPlanText = DescribeTidy(TidySteps(g), chars);
+    }
+
+    private List<TidyStep> TidySteps(FitGroup g) => FitCatalog.PlanTidy(g, _tidyKeepName).Where(s => _fitSyncSel.Contains(s.CharId)).ToList();
+
+    private string DescribeTidy(List<TidyStep> steps, Dictionary<long, CharacterInfo> chars)
+    {
+        string Name(long id) => chars.TryGetValue(id, out var c) ? c.Name : $"Character {id}";
+        var parts = steps.Select(s => $"{Name(s.CharId)}: keep “{s.Keep.Name}” #{s.Keep.FittingId}, delete " +
+                                      string.Join(", ", s.Delete.Select(d => $"“{d.Name}” #{d.FittingId}"))).ToList();
+        var none = _snap.Characters.Where(c => steps.All(s => s.CharId != c.Id)).Select(c => c.Name).ToList();
+        if (none.Count > 0) parts.Add("nothing on " + string.Join(", ", none));
+        return string.Join(" · ", parts).ToUpperInvariant();
+    }
+
+    private void ReviewTidy()
+    {
+        var g = CurrentTidyGroup(_tidyGroup!);
+        var steps = TidySteps(g);
+        if (steps.Count == 0) { RefitStatusText = "TICK AT LEAST ONE PILOT WITH DUPLICATES"; return; }
+        var chars = _snap.Characters.ToDictionary(c => c.Id);
+        var n = steps.Sum(s => s.Delete.Count);
+        AskWrite($"DELETE {n} DUPLICATE COP{(n == 1 ? "Y" : "IES")} OF “{g.Name}” ({_typeName(g.ShipTypeId)}) · ".ToUpperInvariant() + DescribeTidy(steps, chars) +
+                 " · THIS CANNOT BE UNDONE",
+            () => RunTidy(g, steps));
+    }
+
+    private async Task RunTidy(FitGroup g, List<TidyStep> steps)
+    {
+        _tidyGroup = null;
+        var chars = _snap.Characters.ToDictionary(c => c.Id);
+        string Name(long id) => chars.TryGetValue(id, out var c) ? c.Name : $"Character {id}";
+        RefitStatusText = "DELETING DUPLICATES…";
+        var results = await FitCatalog.ExecuteTidy(steps, async (id, fittingId) =>
+        {
+            var (ok, msg) = await _sync.DeleteFitting(id, fittingId);
+            return (ok, StripName(msg, Name(id)));
+        });
+        ShowResults($"TIDY “{g.Name}”", results, chars);
+    }
+
+    private void ShowResults(string title, List<FitSyncResult> results, Dictionary<long, CharacterInfo> chars)
+    {
         var good = results.Count(r => r.Ok);
-        FitSyncResultsTitle = $"“{fit.Name}” · {good} OF {results.Count} PILOTS DONE".ToUpperInvariant();
+        FitSyncResultsTitle = $"{title} · {good} OF {results.Count} PILOTS DONE".ToUpperInvariant();
         FitSyncResults = results.Select(r =>
         {
             var c = chars.GetValueOrDefault(r.CharId);
-            return new FitSyncResultVm(Name(r.CharId), c != null ? B(c.Color) : StDim, r.Message.ToUpperInvariant(),
-                r.Ok ? StHas : r.Saved ? StOld : StNoScope);
+            return new FitSyncResultVm(c?.Name ?? $"Character {r.CharId}", c != null ? B(c.Color) : StDim, r.Message.ToUpperInvariant(),
+                r.Ok ? StHas : r.Saved || r.Deleted > 0 ? StOld : StNoScope);
         }).ToList();
         HasFitSyncResults = true;
-        RefitStatusText = good == results.Count ? $"FITTING SYNCED TO {good} PILOT{(good == 1 ? "" : "S")}" : $"{results.Count - good} OF {results.Count} PILOTS NEED ATTENTION";
+        RefitStatusText = good == results.Count ? $"DONE ON {good} PILOT{(good == 1 ? "" : "S")}" : $"{results.Count - good} OF {results.Count} PILOTS NEED ATTENTION";
     }
 
     private static string StripName(string message, string name) =>
@@ -168,6 +295,13 @@ public sealed partial class MainViewModel
 
     private void AutoOpenFitSync()
     {
+        if (_autoFitTidy is { } t)
+        {
+            _autoFitTidy = null;
+            var g = FitCatalog.Group(_snap.Fittings).Where(x => x.Copies.GroupBy(c => c.CharId).Any(c => c.Count() > 1))
+                .FirstOrDefault(x => x.Names.Any(n => n.Contains(t, StringComparison.OrdinalIgnoreCase)));
+            if (g != null) OpenTidy(g);
+        }
         if (_autoFitSync is not { } q) return;
         _autoFitSync = null;
         var fit = _snap.Fittings.FirstOrDefault(f => f.Name.Contains(q, StringComparison.OrdinalIgnoreCase));

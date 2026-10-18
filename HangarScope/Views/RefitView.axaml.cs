@@ -20,6 +20,9 @@ public partial class RefitView : UserControl
                     if (TopLevel.GetTopLevel(this)?.Clipboard is { } cb) await cb.SetTextAsync(text);
                 };
         };
+        // --fit-flyout opens the IN-GAME FIT ▾ picker (doc screenshot automation)
+        if (Environment.GetCommandLineArgs().Contains("--fit-flyout"))
+            AttachedToVisualTree += (_, _) => DispatcherTimer.RunOnce(() => FitButton.Flyout?.ShowAt(FitButton), TimeSpan.FromMilliseconds(800));
         // --refit-scroll=orders|lists scrolls to the work orders or the pickup/shopping lists (doc screenshot automation)
         var scroll = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--refit-scroll="));
         if (scroll != null)
@@ -29,6 +32,8 @@ public partial class RefitView : UserControl
                 PlanScroll.Offset = new Vector(0, Math.Max(0, target.TranslatePoint(new Point(0, 0), PlanScroll.Content as Visual ?? PlanScroll)?.Y ?? 0));
             }, TimeSpan.FromMilliseconds(600));
     }
+
+    private void CloseFitFlyout(object? sender, EventArgs e) => FitButton.Flyout?.Hide();
 
     private void CloseFlyouts(object? sender, RoutedEventArgs e)
     {

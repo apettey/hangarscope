@@ -91,32 +91,8 @@
             <UniformGrid Columns="2" Classes="btngrid">
               <Button x:Name="FitButton" Classes="action accent rail" Content="IN-GAME FIT ▾">
                 <Button.Flyout>
-                  <Flyout Placement="BottomEdgeAlignedLeft">
-                    <ScrollViewer MaxHeight="420" Width="340">
-                      <ItemsControl ItemsSource="{Binding FitLibrary}">
-                        <ItemsControl.ItemTemplate>
-                          <DataTemplate>
-                            <Button Classes="flat menuitem" Command="{Binding Use}" Click="CloseFlyouts">
-                              <Border BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="12,8">
-                                <StackPanel Spacing="2">
-                                  <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Bright}"/>
-                                  <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <TextBlock Text="{Binding HullName}" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,4,0"/>
-                                    <ItemsControl ItemsSource="{Binding Pilots}" VerticalAlignment="Center">
-                                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                      <ItemsControl.ItemTemplate><DataTemplate>
-                                        <Border Width="8" Height="8" BorderThickness="1" BorderBrush="{Binding Color}" Background="{Binding Fill}" ToolTip.Tip="{Binding Name}"/>
-                                      </DataTemplate></ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <TextBlock Text="{Binding SavedOnText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Dim}" Margin="4,0,0,0"/>
-                                  </StackPanel>
-                                </StackPanel>
-                              </Border>
-                            </Button>
-                          </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                      </ItemsControl>
-                    </ScrollViewer>
+                  <Flyout Placement="RightEdgeAlignedTop" FlyoutPresenterClasses="wide">
+                    <v:FitPickerView Compact="True" Width="900" Height="560" DataContext="{Binding FitPicker}" Done="CloseFitFlyout"/>
                   </Flyout>
                 </Button.Flyout>
               </Button>
@@ -285,6 +261,10 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+          <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsTidyMode}">
+            <TextBlock Classes="label" Text="EACH PILOT KEEPS THE COPY NAMED" VerticalAlignment="Center"/>
+            <ComboBox ItemsSource="{Binding TidyNameOptions}" SelectedIndex="{Binding TidyKeepIndex}" FontSize="13" MinWidth="260"/>
+          </StackPanel>
           <ToggleButton Classes="tog" IsChecked="{Binding ReplaceOutdated}" IsVisible="{Binding FitSyncHasOutdated}" HorizontalAlignment="Left"
                         Content="Replace outdated copies: save the new one first, delete the old one only if that worked"/>
           <DockPanel>
@@ -549,51 +529,10 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- FITTINGS LIBRARY -->
-      <Grid Grid.Row="2" IsVisible="{Binding RefitFittingsMode}" RowDefinitions="Auto,Auto,*">
-        <TextBlock Grid.Row="0" Classes="label" Text="{Binding FitLibraryHeader}" Margin="18,14,18,8"/>
-        <Border Grid.Row="1" BorderBrush="{StaticResource Rule}" BorderThickness="0,0,0,1" Padding="18,0">
-          <Grid ColumnDefinitions="2*,1*,1.2*,1.6*,390" Height="28">
-            <TextBlock Grid.Column="0" Classes="label" Text="FITTING" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Classes="label" Text="HULL" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="2" Classes="label" Text="CONTENTS" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="3" Classes="label" Text="PILOTS" VerticalAlignment="Center"/>
-          </Grid>
-        </Border>
-        <!-- virtualized: every pilot's saved fits -->
-        <ListBox Grid.Row="2" ItemsSource="{Binding FitLibrary}" Background="Transparent" Padding="0" Classes="plain">
-          <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
-          <ListBox.ItemTemplate>
-            <DataTemplate>
-              <Border Classes="mxrow" Height="52" BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1" Padding="18,0" Background="Transparent">
-                <Grid ColumnDefinitions="2*,1*,1.2*,1.6*,390">
-                  <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource Bright}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                  <TextBlock Grid.Column="1" Text="{Binding HullName}" FontSize="14" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="2" Text="{Binding ModulesText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
-                  <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="3">
-                    <ItemsControl ItemsSource="{Binding Pilots}">
-                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                      <ItemsControl.ItemTemplate><DataTemplate>
-                        <Border Width="9" Height="9" BorderThickness="1" BorderBrush="{Binding Color}" Background="{Binding Fill}" ToolTip.Tip="{Binding Name}"/>
-                      </DataTemplate></ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                      <TextBlock Text="{Binding SavedOnText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Muted}"/>
-                      <TextBlock Text="{Binding MissingText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Accent}" IsVisible="{Binding HasMissing}"/>
-                      <TextBlock Text="{Binding OutdatedText}" FontSize="11" LetterSpacing="1" Foreground="{StaticResource Amber}" IsVisible="{Binding HasOutdated}"/>
-                    </StackPanel>
-                  </StackPanel>
-                  <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Classes="action" Content="USE AS TARGET" Command="{Binding Use}" Padding="10,5" LetterSpacing="1.5"/>
-                    <Button Classes="action accent" Content="SYNC TO…" Command="{Binding SyncTo}" Padding="10,5" LetterSpacing="1.5"/>
-                    <Button Classes="action danger" Content="DELETE" Command="{Binding AskDelete}" Padding="10,5" LetterSpacing="1.5"/>
-                  </StackPanel>
-                </Grid>
-              </Border>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-      </Grid>
+      <!-- FITTINGS LIBRARY: the shared fit picker with library actions -->
+      <Panel Grid.Row="2" IsVisible="{Binding RefitFittingsMode}">
+        <v:FitPickerView DataContext="{Binding FitPicker}"/>
+      </Panel>
 
       <!-- footer -->
       <Border Grid.Row="3" Background="{StaticResource Panel}" BorderBrush="{StaticResource Rule}" BorderThickness="0,1,0,0">
@@ -696,6 +635,10 @@
       <Setter Property="CornerRadius" Value="0"/>
       <Setter Property="Padding" Value="0"/>
       <Setter Property="MaxWidth" Value="420"/>
+    </Style>
+    <Style Selector="FlyoutPresenter.wide">
+      <Setter Property="MaxWidth" Value="960"/>
+      <Setter Property="MaxHeight" Value="640"/>
     </Style>
   </UserControl.Styles>
 </UserControl>

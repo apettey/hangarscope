@@ -17,7 +17,7 @@ Every time a new feature is added or an existing feature's behavior/UI changes:
 
 1. **Update the documentation in the same commit** — `README.md` (and `AGENTS.md` if conventions change) must describe the feature: what it does, where it lives in the UI, and any new settings, files, or ESI scopes involved.
 2. **Add screenshots showing the feature** — capture the running app with the feature visible and commit them under `docs/screenshots/` (PNG, kebab-case names, e.g. `assets-filter-rail.png`, `wallet-30day-flow.png`). Reference them from the README section that describes the feature. Update stale screenshots when a screen's appearance changes.
-   Capture from the demo dataset: `HangarScope.exe --demo --screen=<tab> --snapshot=docs/screenshots/<name>.png` renders the window to a PNG and exits (`--refit-mode=fittings`, `--refit-scroll=orders|lists` and `--fit-sync=<fit name part> [--fit-sync-pick=all]` reach the other REFIT views). Check SETTINGS captures before committing: that screen shows the local machine's real ESI client ID even in demo mode.
+   Capture from the demo dataset: `HangarScope.exe --demo --screen=<tab> --snapshot=docs/screenshots/<name>.png` renders the window to a PNG and exits (`--refit-mode=fittings`, `--refit-scroll=orders|lists` `--fit-sync=<fit name part> [--fit-sync-pick=all]`, `--fit-tidy=<fit name part>` and `--fit-expand=all` reach the other REFIT views). Check SETTINGS captures before committing: that screen shows the local machine's real ESI client ID even in demo mode.
 
 A feature PR/commit without updated docs and screenshots is incomplete.
 
@@ -25,6 +25,6 @@ A feature PR/commit without updated docs and screenshots is incomplete.
 
 - `dotnet build` must succeed with 0 warnings/errors before committing.
 - `dotnet test HangarScope.slnx` must pass. Planner/format logic (e.g. `Services/RefitPlanner.cs`, `Services/EftFormat.cs`) stays pure so it can be covered in `HangarScope.Tests`; add tests with every rule change.
-- Anything that writes to the game (saving/deleting in-game fittings) must be an explicit button followed by an in-UI confirmation step. Fit sync goes through the per-pilot picker (`FitSync` in `Services/FitSync.cs`): save the new copy before deleting an old one, and only delete after the save succeeded.
+- Anything that writes to the game (saving/deleting in-game fittings) must be an explicit button followed by an in-UI confirmation step. Fit sync goes through the per-pilot picker (`FitSync` in `Services/FitSync.cs`): save the new copy before deleting an old one, and only delete after the save succeeded. Fit merging, variant grouping, search ranking and the tidy plan live in the pure `Services/FitCatalog.cs`; the picker UI (`Views/FitPickerView.axaml`, `ViewModels/FitPickerVm.cs`) is shared by the IN-GAME FIT ▾ flyout and the FITTINGS library.
 - Launch the app and visually verify affected screens (the app shows a demo dataset when no character is linked, so every screen is exercisable without credentials).
 - Real-data paths (SSO, sync) log to `%APPDATA%\HangarScope\sync.log` — check it when debugging sync issues.

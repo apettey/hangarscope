@@ -24,7 +24,7 @@ Until a character is linked, the app shows the design's demo dataset so every sc
 
 ![Refit consolidation matrix](docs/screenshots/refit-matrix.png)
 
-Select the ships to standardise in the rail (filter by hull, ship name or pilot), then set the target: an in-game fit from any pilot (**IN-GAME FIT ▾**), pasted EFT, a copy of one ship, or the union of all of them. HangarScope then shows, per ship, what to strip and what to fit, and where every fitted item comes from:
+Select the ships to standardise in the rail (filter by hull, ship name or pilot), then set the target: an in-game fit from any pilot (**IN-GAME FIT ▾** opens the fit picker: search by name, hull or module, hull chips, sort, ↑↓ + Enter), pasted EFT, a copy of one ship, or the union of all of them. HangarScope then shows, per ship, what to strip and what to fit, and where every fitted item comes from:
 
 - **SWAP** — stripped from another selected ship of the same pilot (always tried first);
 - **CONTRACT** — stripped from another pilot's ship, moved with an item-exchange contract (can be turned off);
@@ -35,11 +35,15 @@ Rigs are destroyed when removed, so they are never swapped. Loaded charges (crys
 
 ![Refit work orders](docs/screenshots/refit-work-orders.png)
 
-The shopping list copies as an in-game **Multibuy** list; the target copies as EFT. **SAVE TARGET TO PILOTS…** and the **FITTINGS LIBRARY**'s **SYNC TO…** open a pilot picker: each pilot shows whether it has the fit, has an outdated same-named copy, is missing it, or lacks the fittings write scope. Missing pilots start ticked; **ALL** / **NONE** are shortcuts. A ticked outdated pilot gets the new copy saved first, and its old copy is deleted only after that save worked. The library can also delete fits. Every in-game write waits for an explicit **CONFIRM · WRITE IN GAME** that lists what each pilot gets, and the result is reported per pilot. Plans are saved to `%APPDATA%\HangarScope\refits.json`.
+The shopping list copies as an in-game **Multibuy** list; the target copies as EFT. **SAVE TARGET TO PILOTS…** and the **FITTINGS LIBRARY**'s **SYNC TO…** open a pilot picker: each pilot shows whether it has the fit, has an outdated same-named copy, is missing it, or lacks the fittings write scope. Missing pilots start ticked; **ALL** / **NONE** are shortcuts. A ticked outdated pilot gets the new copy saved first, and its old copy is deleted only after that save worked. The FITTINGS LIBRARY uses the same fit picker: identical fits saved under different names or on different pilots are one entry, fits that differ only in cargo or drones (or share a name with other contents) are grouped as expandable variants, and a preview shows the slots and who has it. **TIDY DUPLICATES** deletes a pilot's extra identical copies through the same pilot picker, keeping the name you choose; variants are never touched. The library can also delete fits. Every in-game write waits for an explicit **CONFIRM · WRITE IN GAME** that lists what each pilot gets, and the result is reported per pilot. Plans are saved to `%APPDATA%\HangarScope\refits.json`.
+
+![Fit picker](docs/screenshots/fit-picker.png)
 
 ![Fittings library](docs/screenshots/fittings-library.png)
 
 ![Fittings sync picker](docs/screenshots/fittings-sync-picker.png)
+
+![Tidy duplicates](docs/screenshots/fittings-tidy.png)
 
 Full details, including the planner's rules: [docs/FEATURES.md](docs/FEATURES.md#refit--consolidate-several-ships-onto-one-fit).
 
@@ -75,11 +79,12 @@ HangarScope/
     RefitPlanner pure REFIT planner: strip/fit orders, swaps, contracts, pickups, buys, slot checks
     EftFormat    EFT fitting import/export and multibuy export
     FitSync      pure fitting sync rules: per-pilot state, save-then-delete replacement
+    FitCatalog   pure fit picker rules: merging identical fits, variant groups, search ranking, tidy plan
     JsonStore    JSON persistence under %APPDATA%\HangarScope, DPAPI for secrets/tokens
   ViewModels/    MVVM (CommunityToolkit.Mvvm); MainViewModel ports the prototype's logic 1:1
   Views/         seven screens + custom title-bar window, styled to the design tokens
   Controls/      FractionBar (proportional value bars)
-HangarScope.Tests/  xUnit tests for the REFIT planner, EFT format, fitting sync and fittings cache rules
+HangarScope.Tests/  xUnit tests for the REFIT planner, EFT format, fitting sync, fit catalog and fittings cache rules
 ```
 
 Tests: `dotnet test HangarScope.slnx` (CI runs every `*.Tests.csproj`).
