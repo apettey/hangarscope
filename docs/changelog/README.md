@@ -7,6 +7,7 @@ never rewritten: changing a feature again gets a new entry.
 
 | Date | Change | Summary |
 | --- | --- | --- |
+| 2026-11-11 | [Show the app version](2026-11-11-show-app-version/README.md) | The title bar shows the running version (e.g. `V1.3.0`), or `DEV BUILD` for local builds |
 | 2026-11-11 | [Show which container or ship holds an item](2026-11-11-item-location-path/README.md) | ASSETS rows inside a container or ship show the exact holder and bay under the station (e.g. `Paladin “Lasers Go Brr” › Cargo`); search matches container and ship names |
 | 2026-10-18 | [Pin the shared release actions](2026-10-18-pin-shared-actions/README.md) | Internal: release and CI use the shared eve-contracts actions pinned to a commit, updated by Dependabot PRs, instead of `@main` |
 | 2026-10-18 | [Shared release versioning](2026-10-18-shared-versioning/README.md) | Internal: versioning, release notes and the `features.json` check run on the shared code in `apettey/eve-contracts`; the local release script and `release.ps1` are gone |
