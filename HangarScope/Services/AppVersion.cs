@@ -11,8 +11,11 @@ public static class AppVersion
     public const string DevLabel = "DEV BUILD";
 
     /// <summary>Display text for the running app, e.g. "V1.3.0" or "DEV BUILD".</summary>
-    public static string Display { get; } = Format(
-        Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+    public static string Display { get; } = Format(Informational);
+
+    /// <summary>HangarScope's own informational version (the app assembly, not whichever host loaded it).</summary>
+    public static string? Informational =>
+        typeof(AppVersion).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
     /// <summary>
     /// "1.3.0+abc123" → "V1.3.0"; "0.0.1-ci.42" → "V0.0.1-CI.42"; "0.0.0-dev", empty or missing → "DEV BUILD".

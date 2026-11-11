@@ -16,5 +16,13 @@ public class AppVersionTests
         Assert.Equal(expected, AppVersion.Format(informational));
 
     [Fact]
-    public void Running_assembly_has_a_display_version() => Assert.False(string.IsNullOrWhiteSpace(AppVersion.Display));
+    public void Display_reads_the_app_assemblys_version()
+    {
+        // the SDK always stamps an informational version (csproj default 0.0.0-dev, or CI's -p:Version)
+        var informational = AppVersion.Informational;
+        Assert.False(string.IsNullOrWhiteSpace(informational));
+        Assert.Equal(AppVersion.Format(informational), AppVersion.Display);
+        var version = typeof(AppVersion).Assembly.GetName().Version!;
+        Assert.StartsWith($"{version.Major}.{version.Minor}.{version.Build}", informational);
+    }
 }
