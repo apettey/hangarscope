@@ -10,7 +10,7 @@ Built with **.NET 10 + Avalonia UI** (C#, XAML, MVVM). The UI is a faithful recr
 
 Full feature documentation with screenshots: **[docs/FEATURES.md](docs/FEATURES.md)**.
 
-- **ASSETS** — filterable/sortable asset browser: search, multi-select character chips (value-sorted, scrollable), distance-from selector, region/category/ownership/min-value filters, location tree, virtualized 8-column table with jump-distance coloring.
+- **ASSETS** — filterable/sortable asset browser: search, multi-select character chips (value-sorted, scrollable), distance-from selector, region/category/ownership/min-value filters, location tree, virtualized 8-column table with jump-distance coloring; items in a container or ship show exactly which one (and which bay or slot) under their station.
 - **REFIT** — consolidate several ships (on any pilots) onto one fit: per-ship strip/fit work orders with their source (swap, contract, pickup, buy), pickup and shopping lists, new hulls, slot checks, EFT import/export, multibuy export, and a FITTINGS library that syncs saved in-game fits to the pilots you pick and replaces outdated copies. See [REFIT](#refit).
 - **DASHBOARD** — total net worth, per-character cards in a value-sorted wrap grid, value-by-region bars (top 12 + OTHERS), top 10 holdings.
 - **WALLET** — liquid ISK totals, per-character balances with 30-day delta, 30-day flow by ref-type and by station, accumulated journal (kept locally beyond ESI's 30-day window).

@@ -6,14 +6,16 @@ All screenshots show the built-in demo dataset (`HangarScope.exe --demo`). With 
 
 ![Assets](screenshots/assets.png)
 
+![Assets: which container or ship holds an item](screenshots/assets-container-path.png)
+
 The main ledger: every asset stack across every linked character, aggregated by type + station + ownership flag.
 
-- **Search** matches item name, group, and station text (debounced, precomputed lowercase blobs — fast at thousands of stacks).
+- **Search** matches item name, group, station text and container/ship names (debounced, precomputed lowercase blobs — fast at thousands of stacks).
 - **Characters** — additive multi-select chips, sorted by asset value, with per-character totals. Empty selection = all. Scrolls beyond ~8 characters, header shows the count.
 - **Distance from** — jump counts computed from the *closest selected character* or a specific one. Route lengths come from ESI `/route/` and are cached per system pair.
 - **Filters** — region, category (Ships/Modules/Minerals/…), ownership (Hangar / Fitted / In container), minimum stack value. All filters AND together.
 - **Locations tree** — regions with totals, stations with stack counts; clicking a station toggles it as a filter.
-- **Table** — sortable by ITEM / QTY / JUMPS / VALUE. Jump counts are color-coded (green = here, red = >10 jumps). `FITTED` / `CTNR` chips mark non-hangar stacks. Virtualized — real characters with thousands of stacks scroll smoothly.
+- **Table** — sortable by ITEM / QTY / JUMPS / VALUE. Jump counts are color-coded (green = here, red = >10 jumps). `FITTED` / `CTNR` chips mark non-hangar stacks, and the LOCATION cell names exactly which container or ship holds them on a second line, outermost first with the bay or slot (`↳ Rorqual › Fleet hangar › Small Secure Container “Ammo”`, `↳ Paladin “Lasers Go Brr” › High slot`); long paths are shortened in the middle, hover for the full location. The same item in two containers is two rows. Virtualized — real characters with thousands of stacks scroll smoothly.
 - **Footer** — filtered stack count and value, plus price-sync provenance (hub + age).
 - The `SELL`/`BUY` toggle in the header re-values everything instantly against Jita sell or buy orders.
 
@@ -152,7 +154,7 @@ One card per character:
 ## Under the hood
 
 - **ESI client** — ETag caching, `X-Pages` pagination, error-limit backoff, ≤8 concurrent requests.
-- **Asset aggregation** — raw asset items are walked up their container/ship chains to a root station or structure; fitting-slot flags become FITTED, nested items CTNR.
+- **Asset aggregation** — raw asset items are walked up their container/ship chains to a root station or structure; fitting-slot flags become FITTED, nested items CTNR, and the chain is kept as a readable path using player-given container and ship names (`/assets/names/`).
 - **Ship fits** — alongside the per-station stacks, every assembled ship is kept with its own contents (slot flag, type, qty) and its player-given name (`/assets/names/`). This is what lets HangarScope tell which module is on which hull.
 - **Saved fittings** — with the fittings scopes granted, each character's in-game saved fittings are synced, and a fitting can be saved to the characters you pick, replacing their outdated same-named copies (save first, delete after). Fits are matched across characters by hull and module list, ignoring the name. A sync right after a save or delete keeps the local list while ESI still serves its cached copy from before the write.
 - **Hull slots** — slot counts per hull come from the type's dogma attributes and are cached with the type in `universe.json`.

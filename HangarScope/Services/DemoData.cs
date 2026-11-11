@@ -27,13 +27,14 @@ public static class DemoData
         };
 
         var assets = new List<AssetStack>();
-        void A(string name, string group, string cat, long qty, long ch, long st, OwnershipFlag flag, double sell, double buy) =>
+        void A(string name, string group, string cat, long qty, long ch, long st, OwnershipFlag flag, double sell, double buy, string path = "") =>
             assets.Add(new AssetStack
             {
                 TypeId = assets.Count + 1, Name = name, Group = group, Category = cat, Qty = qty, CharId = ch,
-                StationId = st, Flag = flag, Sell = sell, Buy = buy,
-                Search = $"{name} {group} {stations[st].Name}".ToLowerInvariant(),
+                StationId = st, Flag = flag, Path = path, Sell = sell, Buy = buy,
+                Search = $"{name} {group} {stations[st].Name} {path}".ToLowerInvariant(),
             });
+        const string Sep = AssetLocator.Separator;
 
         A("Raven Navy Issue", "Battleship", "Ships", 1, K, 1, OwnershipFlag.Hangar, 620e6, 585e6);
         A("Rorqual", "Capital Industrial", "Ships", 1, R, 5, OwnershipFlag.Hangar, 2.6e9, 2.35e9);
@@ -51,10 +52,10 @@ public static class DemoData
         A("Oxygen Isotopes", "Ice Product", "Minerals", 800000, M, 6, OwnershipFlag.Hangar, 590, 540);
         A("Compressed Spodumain", "Ore", "Minerals", 42000, R, 5, OwnershipFlag.Hangar, 21000, 19000);
         A("Nanite Repair Paste", "Nanite", "Commodities", 5000, R, 5, OwnershipFlag.Hangar, 28000, 24000);
-        A("Ishtar Blueprint (Copy)", "Blueprint", "Blueprints", 6, R, 5, OwnershipFlag.Container, 12e6, 8e6);
-        A("Ballistic Control System II", "Ballistic Control", "Modules", 24, K, 1, OwnershipFlag.Container, 1.2e6, 0.9e6);
-        A("Scourge Fury Heavy Missile", "Missile", "Ammunition", 250000, R, 5, OwnershipFlag.Container, 210, 180);
-        A("425mm AutoCannon II", "Projectile Turret", "Modules", 8, R, 5, OwnershipFlag.Fitted, 3.2e6, 2.7e6);
+        A("Ishtar Blueprint (Copy)", "Blueprint", "Blueprints", 6, R, 5, OwnershipFlag.Container, 12e6, 8e6, "Station Container “BPC Library”");
+        A("Ballistic Control System II", "Ballistic Control", "Modules", 24, K, 1, OwnershipFlag.Container, 1.2e6, 0.9e6, "Raven Navy Issue" + Sep + "Cargo");
+        A("Scourge Fury Heavy Missile", "Missile", "Ammunition", 250000, R, 5, OwnershipFlag.Container, 210, 180, "Rorqual" + Sep + "Fleet hangar" + Sep + "Small Secure Container “Ammo”");
+        A("425mm AutoCannon II", "Projectile Turret", "Modules", 8, R, 5, OwnershipFlag.Container, 3.2e6, 2.7e6, "Rorqual" + Sep + "Fleet hangar");
         A("Damage Control II", "Damage Control", "Modules", 60, K, 4, OwnershipFlag.Hangar, 0.6e6, 0.45e6);
         A("Warrior II", "Combat Drone", "Drones", 300, M, 6, OwnershipFlag.Hangar, 0.3e6, 0.25e6);
         A("Pyerite", "Mineral", "Minerals", 3100000, M, 3, OwnershipFlag.Hangar, 12, 10.5);
@@ -86,22 +87,23 @@ public static class DemoData
             foreach (var slot in sh.Items.Where(i => i.TypeId == Mpl).Select(i => i.Flag).ToList())
                 sh.Items.Add(new FitItem { TypeId = Imf, Flag = slot, Qty = 1 });
 
-        void T(long typeId, long qty, long ch, long st, OwnershipFlag flag)
+        void T(long typeId, long qty, long ch, long st, OwnershipFlag flag, string path = "")
         {
             var t = types[typeId];
             assets.Add(new AssetStack
             {
                 TypeId = typeId, Name = t.Name, Group = t.Group, Category = t.Category, Qty = qty, CharId = ch, StationId = st,
-                Flag = flag, Sell = t.Sell, Buy = t.Buy, Search = $"{t.Name} {t.Group} {stations[st].Name}".ToLowerInvariant(),
+                Flag = flag, Path = path, Sell = t.Sell, Buy = t.Buy, Search = $"{t.Name} {t.Group} {stations[st].Name} {path}".ToLowerInvariant(),
             });
         }
         foreach (var sh in ships)
         {
             T(Paladin, 1, sh.CharId, sh.StationId, OwnershipFlag.Hangar);
-            foreach (var g in sh.Items.GroupBy(i => (i.TypeId, fitted: FitMath.IsFittedFlag(i.Flag))))
-                T(g.Key.TypeId, g.Sum(i => i.Qty), sh.CharId, sh.StationId, g.Key.fitted ? OwnershipFlag.Fitted : OwnershipFlag.Container);
+            var hull = AssetLocator.Label(types[Paladin].Name, sh.Name);
+            foreach (var g in sh.Items.GroupBy(i => (i.TypeId, bay: AssetLocator.BayLabel(i.Flag), fitted: AssetLocator.IsFittingFlag(i.Flag))))
+                T(g.Key.TypeId, g.Sum(i => i.Qty), sh.CharId, sh.StationId, g.Key.fitted ? OwnershipFlag.Fitted : OwnershipFlag.Container, hull + Sep + g.Key.bay);
         }
-        T(Hs, 4, R, 5, OwnershipFlag.Container);
+        T(Hs, 4, R, 5, OwnershipFlag.Container, "Small Secure Container “Spare mods”");
         T(Tc, 1, M, 5, OwnershipFlag.Hangar);
         T(Elc, 1, K, 1, OwnershipFlag.Hangar);
         T(Te, 2, M, 3, OwnershipFlag.Hangar);

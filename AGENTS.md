@@ -23,7 +23,7 @@ Follow the `ship-change` skill ([`.claude/skills/ship-change/SKILL.md`](.claude/
 6. **Release quickly.** Small PRs, merged the same day, released straight after merge; installed apps auto-update from the GitHub Release (Velopack).
 
 Feature documentation still lives alongside the log: when a feature is added or a screen changes, update `README.md` / `docs/FEATURES.md` (what it does, where it lives in the UI, new settings, files or ESI scopes) and refresh `docs/screenshots/` (PNG, kebab-case names, e.g. `assets-filter-rail.png`).
-Capture from the demo dataset: `HangarScope.exe --demo --screen=<tab> --snapshot=<path>.png` renders the window to a PNG and exits (`--refit-mode=fittings`, `--refit-scroll=orders|lists` `--fit-sync=<fit name part> [--fit-sync-pick=all]`, `--fit-tidy=<fit name part>` and `--fit-expand=all` reach the other REFIT views). Check SETTINGS captures before committing: that screen shows the local machine's real ESI client ID even in demo mode.
+Capture from the demo dataset: `HangarScope.exe --demo --screen=<tab> --snapshot=<path>.png` renders the window to a PNG and exits (`--refit-mode=fittings`, `--refit-scroll=orders|lists` `--fit-sync=<fit name part> [--fit-sync-pick=all]`, `--fit-tidy=<fit name part>` and `--fit-expand=all` reach the other REFIT views; `--assets-search=<text>` pre-fills the ASSETS search). Check SETTINGS captures before committing: that screen shows the local machine's real ESI client ID even in demo mode.
 
 ## Verification expectations
 

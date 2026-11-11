@@ -62,6 +62,9 @@ public sealed partial class MainViewModel : ObservableObject
         var screenArg = args.FirstOrDefault(a => a.StartsWith("--screen="));
         if (screenArg != null) _screen = screenArg["--screen=".Length..];
         if (args.Contains("--refit-mode=fittings")) { _refitPlanMode = false; _refitFittingsMode = true; }
+        // --assets-search=<text> pre-fills the ASSETS search box (screenshot automation)
+        var searchArg = args.FirstOrDefault(a => a.StartsWith("--assets-search="));
+        if (searchArg != null) _searchText = searchArg["--assets-search=".Length..];
         _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _searchDebounce.Tick += (_, _) => { _searchDebounce.Stop(); Invalidate("assets"); };
         // coalesce sync broadcast storms (one per character during SyncAll) into one recompute
@@ -436,7 +439,7 @@ public sealed partial class MainViewModel : ObservableObject
                 a.Flag != OwnershipFlag.Hangar,
                 a.Flag == OwnershipFlag.Fitted,
                 Formatting.Qty(a.Qty), a.Group, c.Name, B(c.Color),
-                StationName(a.StationId),
+                StationName(a.StationId), a.Path,
                 j < 0 ? "—" : j.ToString(),
                 j == 0 ? B("#8bd450") : j < 0 ? B("#6b7887") : j <= 10 ? B("#cfd8e0") : B("#c0533f"),
                 Formatting.Isk(Unit(a)), Formatting.Isk(Val(a)));

@@ -10,7 +10,7 @@
         <StackPanel Margin="14,16" Spacing="18">
           <StackPanel>
             <TextBlock Text="SEARCH" Classes="label" Margin="0,0,0,6"/>
-            <TextBox Text="{Binding SearchText}" PlaceholderText="Item, group, station…"/>
+            <TextBox Text="{Binding SearchText}" PlaceholderText="Item, group, station, container…"/>
           </StackPanel>
 
           <StackPanel>
@@ -157,7 +157,12 @@
                     <Border DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,6,0" Background="{Binding OwnerColor}" BorderBrush="{Binding OwnerColor}" BorderThickness="1" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding OwnerName}" FontSize="15" VerticalAlignment="Center"/>
                   </DockPanel>
-                  <TextBlock Grid.Column="4" Text="{Binding Location}" FontSize="15" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                  <StackPanel Grid.Column="4" VerticalAlignment="Center" Margin="0,0,10,0" Background="Transparent" ToolTip.Tip="{Binding LocationTip}">
+                    <TextBlock Text="{Binding Location}" FontSize="15" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                    <!-- which container or ship holds the stack, outermost first; long paths are cut in the middle so the innermost holder stays visible (full path in the tooltip) -->
+                    <TextBlock IsVisible="{Binding PathVisible}" Text="{Binding Path, StringFormat='↳ {0}'}" FontSize="12.5" LetterSpacing="0.3"
+                               Foreground="{StaticResource Bright}" TextTrimming="PrefixCharacterEllipsis" Margin="0,-1,0,0"/>
+                  </StackPanel>
                   <TextBlock Grid.Column="5" Text="{Binding JumpsText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{Binding JumpsBrush}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
                   <TextBlock Grid.Column="6" Text="{Binding UnitText}" FontFamily="{StaticResource Mono}" FontSize="12" Foreground="{StaticResource Muted}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
                   <TextBlock Grid.Column="7" Text="{Binding ValueText}" FontFamily="{StaticResource Mono}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource ValueText}" TextAlignment="Right" VerticalAlignment="Center"/>
