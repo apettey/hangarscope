@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="using:HangarScope.Views"
+        xmlns:s="using:HangarScope.Services"
         x:Class="HangarScope.Views.MainWindow"
         Title="HANGARSCOPE — NEW EDEN ASSET LEDGER"
         Width="1500" Height="940"
@@ -15,9 +16,13 @@
             BorderBrush="{StaticResource FaintRule}" BorderThickness="0,0,0,1"
             PointerPressed="TitleBar_PointerPressed" DoubleTapped="TitleBar_DoubleTapped">
       <DockPanel>
-        <TextBlock DockPanel.Dock="Left" Margin="12,0" VerticalAlignment="Center"
-                   FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}"
-                   Text="HANGARSCOPE — NEW EDEN ASSET LEDGER"/>
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="12,0" VerticalAlignment="Center">
+          <TextBlock FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Dim}"
+                     Text="HANGARSCOPE — NEW EDEN ASSET LEDGER · "/>
+          <!-- the running version (releases) or DEV BUILD (local builds) -->
+          <TextBlock FontSize="12" LetterSpacing="1.5" Foreground="{StaticResource Muted}"
+                     Text="{x:Static s:AppVersion.Display}"/>
+        </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
           <Button Classes="flat titlebtn" Width="46" Height="32" Click="Minimize_Click">
             <TextBlock Text="–" FontSize="14" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>

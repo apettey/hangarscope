@@ -99,7 +99,7 @@ dotnet publish HangarScope -c Release -r win-x64 --self-contained false -o publi
 
 ## Contributing and releases
 
-Every change follows the six rules in [`AGENTS.md`](AGENTS.md) (tests, a review loop, before/after screenshots, a release-log entry, a new version per merge, fast releases); agents run them through the [`ship-change`](.claude/skills/ship-change/SKILL.md) skill. What changed and when is in the [release log](docs/changelog/README.md); user-facing announcements are in [`docs/whats-new/features.json`](docs/whats-new/features.json). Every merge to `master` is released automatically by [`release.yml`](.github/workflows/release.yml) as a new SemVer version, and installed copies auto-update from the GitHub Release.
+Every change follows the six rules in [`AGENTS.md`](AGENTS.md) (tests, a review loop, before/after screenshots, a release-log entry, a new version per merge, fast releases); agents run them through the [`ship-change`](.claude/skills/ship-change/SKILL.md) skill. What changed and when is in the [release log](docs/changelog/README.md); user-facing announcements are in [`docs/whats-new/features.json`](docs/whats-new/features.json). Every merge to `master` is released automatically by [`release.yml`](.github/workflows/release.yml) as a new SemVer version, and installed copies auto-update from the GitHub Release. The title bar shows the running version (`V1.3.0`), or `DEV BUILD` for a local build.
 
 ## Fonts
 

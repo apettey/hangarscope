@@ -40,7 +40,7 @@ repo-specific review rules in [references/review-loop.md](references/review-loop
 | Release log | `docs/changelog/` (index `README.md`, template `TEMPLATE.md`) |
 | What's new | `docs/whats-new/features.json` · images `docs/whats-new/img/` |
 | Feature docs | `README.md`, `docs/FEATURES.md`, `docs/screenshots/` (kebab-case PNGs) |
-| Version source | `vX.Y.Z` tags, computed on merge by the shared `apettey/eve-contracts` `next-version` action (the same code as eve-contracts and multi-box; tests live there). `<Version>` in `HangarScope/HangarScope.csproj` is only the local-build default |
+| Version source | `vX.Y.Z` tags, computed on merge by the shared `apettey/eve-contracts` `next-version` action (the same code as eve-contracts and multi-box; tests live there). `<Version>` in `HangarScope/HangarScope.csproj` is only the local-build default (`0.0.0-dev`, shown as DEV BUILD in the title bar) |
 | Release | `.github/workflows/release.yml` on every push to `master`: version from the shared `next-version` action, build + pack via the shared `apettey/eve-contracts` workflow, then tag + GitHub Release, then notes via the shared `finalize-release` action. Manual run: `gh workflow run release.yml --ref master` |
 | Deploy target | GitHub Release with the Velopack installer + delta packages; installed apps auto-update from it |
 | Repo / PR URLs | `apettey/hangarscope` |

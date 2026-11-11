@@ -7,8 +7,8 @@
     <LangVersion>latest</LangVersion>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     <AssemblyName>HangarScope</AssemblyName>
-    <!-- Local builds only. Releases are versioned from the v* tags by .github/workflows/release.yml (the shared next-version action in apettey/eve-contracts), which passes -p:Version. -->
-    <Version>1.2.0</Version>
+    <!-- Local builds only: shown as "DEV BUILD" in the title bar. Releases are versioned from the v* tags by .github/workflows/release.yml (the shared next-version action in apettey/eve-contracts), which passes -p:Version. -->
+    <Version>0.0.0-dev</Version>
     <RootNamespace>HangarScope</RootNamespace>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
