@@ -8,7 +8,7 @@ All screenshots show the built-in demo dataset (`HangarScope.exe --demo`). With 
 
 ![Assets: which container or ship holds an item](screenshots/assets-container-path.png)
 
-The main ledger: every asset stack across every linked character, aggregated by type + station + ownership flag.
+The main ledger: every asset stack across every linked character, aggregated by type + station + ownership flag + container/ship.
 
 - **Search** matches item name, group, station text and container/ship names (debounced, precomputed lowercase blobs — fast at thousands of stacks).
 - **Characters** — additive multi-select chips, sorted by asset value, with per-character totals. Empty selection = all. Scrolls beyond ~8 characters, header shows the count.
