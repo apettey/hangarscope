@@ -64,6 +64,8 @@ public sealed class SyncService : IDisposable
         public long Qty { get; set; }
         public long StationId { get; set; }
         public OwnershipFlag Flag { get; set; }
+        /// <summary>Container/ship chain inside the station ("Paladin “X” › Cargo"); "" for items loose in the hangar.</summary>
+        public string Path { get; set; } = "";
     }
 
     private sealed class PriceEntry { public double Sell { get; set; } public double Buy { get; set; } }
@@ -324,51 +326,40 @@ public sealed class SyncService : IDisposable
             Status($"Fetching assets for {rec.CharacterName}…");
             var items = await _esi.GetPaged($"/characters/{id}/assets/", token, ct);
             Status($"{items.Count:N0} asset items · resolving types & stations…");
-            var byItemId = items.ToDictionary(i => i.GetProperty("item_id").GetInt64());
-            var stacks = new Dictionary<(long type, long station, OwnershipFlag flag), long>();
-            var typeIds = new HashSet<long>();
-            var rootOf = new Dictionary<long, long>(items.Count);
-
-            foreach (var item in items)
-            {
-                var typeId = item.GetProperty("type_id").GetInt64();
-                typeIds.Add(typeId);
-                var qty = item.GetProperty("quantity").GetInt64();
-
-                // walk up the container/ship chain to a station, structure or solar system
-                var cur = item;
-                var flag = OwnershipFlag.Hangar;
-                var depth = 0;
-                while (byItemId.TryGetValue(cur.GetProperty("location_id").GetInt64(), out var parent) && depth++ < 16)
-                {
-                    if (depth == 1)
-                    {
-                        var lf = cur.GetProperty("location_flag").GetString() ?? "";
-                        flag = IsFittingFlag(lf) ? OwnershipFlag.Fitted : OwnershipFlag.Container;
-                    }
-                    cur = parent;
-                }
-                var rootLoc = cur.GetProperty("location_id").GetInt64();
-                var rootType = cur.GetProperty("location_type").GetString();
-                long stationId;
-                if (rootType == "solar_system") stationId = -rootLoc; // synthetic "in space" station keyed by system
-                else stationId = rootLoc;
-
-                rootOf[item.GetProperty("item_id").GetInt64()] = stationId;
-                var key = (typeId, stationId, flag);
-                stacks[key] = stacks.GetValueOrDefault(key) + qty;
-            }
-
+            var rawItems = items.Select(i => new RawAsset(
+                i.GetProperty("item_id").GetInt64(), i.GetProperty("type_id").GetInt64(),
+                i.GetProperty("location_id").GetInt64(), i.GetProperty("location_flag").GetString() ?? "",
+                i.GetProperty("location_type").GetString() ?? "", i.GetProperty("quantity").GetInt64())).ToList();
+            var typeIds = rawItems.Select(i => i.TypeId).ToHashSet();
             await _universe.ResolveTypes(typeIds, ct);
+
+            // player-given names of every container and ship, so rows can say which one holds an item
+            var namedIds = AssetLocator.ParentIds(rawItems);
+            foreach (var i in items)
+                if (i.TryGetProperty("is_singleton", out var single) && single.GetBoolean()
+                    && _universe.Cache.Types.GetValueOrDefault(i.GetProperty("type_id").GetInt64())?.Category == "Ships")
+                    namedIds.Add(i.GetProperty("item_id").GetInt64());
+            var itemNames = await FetchItemNames(namedIds, id, token, ct);
+
+            var places = AssetLocator.Locate(rawItems, t => _universe.Cache.Types.GetValueOrDefault(t)?.Name ?? $"Type {t}", itemNames);
+            var stacks = new Dictionary<(long type, long station, OwnershipFlag flag, string path), long>();
+            var rootOf = new Dictionary<long, long>(items.Count);
+            foreach (var item in rawItems)
+            {
+                var place = places[item.ItemId];
+                rootOf[item.ItemId] = place.StationId;
+                var key = (item.TypeId, place.StationId, place.Flag, place.Path);
+                stacks[key] = stacks.GetValueOrDefault(key) + item.Qty;
+            }
 
             var raw = stacks
                 .Where(kv => !ShouldHide(kv.Key.type))
-                .Select(kv => new RawStack { TypeId = kv.Key.type, StationId = kv.Key.station, Flag = kv.Key.flag, Qty = kv.Value })
+                .Select(kv => new RawStack { TypeId = kv.Key.type, StationId = kv.Key.station, Flag = kv.Key.flag, Path = kv.Key.path, Qty = kv.Value })
                 .ToArray();
             _assetCache[id] = raw;
             _store.Save($"cache/assets-{id}.json", raw.ToList());
 
-            var ships = await BuildShips(items, rootOf, id, token, ct);
+            var ships = BuildShips(items, rootOf, itemNames, id);
             await _universe.ResolveSlots(ships.Select(sh => sh.TypeId), ct);
             _shipCache[id] = ships;
             _store.Save($"cache/ships-{id}.json", ships);
@@ -428,7 +419,7 @@ public sealed class SyncService : IDisposable
     /// Assembled ships and everything inside them. Unlike the station stacks above, this keeps
     /// which module sits on which hull and in which slot.
     /// </summary>
-    private async Task<List<ShipInstance>> BuildShips(List<JsonElement> items, Dictionary<long, long> rootOf, long charId, string token, CancellationToken ct)
+    private List<ShipInstance> BuildShips(List<JsonElement> items, Dictionary<long, long> rootOf, IReadOnlyDictionary<long, string> itemNames, long charId)
     {
         var ships = new Dictionary<long, ShipInstance>();
         foreach (var item in items)
@@ -450,8 +441,16 @@ public sealed class SyncService : IDisposable
             else ship.Items.Add(new FitItem { TypeId = typeId, Flag = flag, Qty = qty });
         }
 
-        // player-given ship names; ESI accepts up to 1000 ids per call
-        foreach (var chunk in ships.Keys.Chunk(1000))
+        foreach (var s in ships.Values)
+            if (itemNames.TryGetValue(s.ItemId, out var name)) s.Name = name;
+        return ships.Values.OrderBy(s => s.TypeId).ThenBy(s => s.ItemId).ToList();
+    }
+
+    /// <summary>Player-given names of containers and ships (POST /assets/names/, up to 1000 ids per call). Unnamed ones are left out.</summary>
+    private async Task<Dictionary<long, string>> FetchItemNames(IEnumerable<long> ids, long charId, string token, CancellationToken ct)
+    {
+        var names = new Dictionary<long, string>();
+        foreach (var chunk in ids.Chunk(1000))
         {
             try
             {
@@ -459,13 +458,13 @@ public sealed class SyncService : IDisposable
                 foreach (var n in doc.RootElement.EnumerateArray())
                 {
                     var name = n.GetProperty("name").GetString();
-                    if (ships.TryGetValue(n.GetProperty("item_id").GetInt64(), out var s) && !string.IsNullOrWhiteSpace(name) && name != "None")
-                        s.Name = name;
+                    if (!string.IsNullOrWhiteSpace(name) && name != "None")
+                        names[n.GetProperty("item_id").GetInt64()] = name;
                 }
             }
-            catch (Exception ex) { Status($"Ship names unavailable: {ex.Message}"); }
+            catch (Exception ex) { Status($"Container and ship names unavailable: {ex.Message}"); }
         }
-        return ships.Values.OrderBy(s => s.TypeId).ThenBy(s => s.ItemId).ToList();
+        return names;
     }
 
     /// <summary>
@@ -566,10 +565,6 @@ public sealed class SyncService : IDisposable
         now <= wroteAt.AddMinutes(15) && (generatedAt is not { } g || g <= wroteAt);
 
     private bool ShouldHide(long typeId) => false;
-
-    private static bool IsFittingFlag(string f) =>
-        f.StartsWith("HiSlot") || f.StartsWith("MedSlot") || f.StartsWith("LoSlot") ||
-        f.StartsWith("RigSlot") || f.StartsWith("SubSystemSlot") || f is "DroneBay" or "FighterBay";
 
     private async Task SyncLocationFor(AuthRecord rec, string token, CharState state, CancellationToken ct)
     {
@@ -846,9 +841,10 @@ public sealed class SyncService : IDisposable
                     CharId = charId,
                     StationId = r.StationId,
                     Flag = r.Flag,
+                    Path = r.Path ?? "",
                     Sell = pe?.Sell ?? 0,
                     Buy = pe?.Buy ?? 0,
-                    Search = $"{name} {group} {stInfo.Name}".ToLowerInvariant(),
+                    Search = $"{name} {group} {stInfo.Name} {r.Path}".ToLowerInvariant(),
                 });
             }
         }

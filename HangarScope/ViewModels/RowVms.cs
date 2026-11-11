@@ -17,7 +17,13 @@ public sealed record TreeRegionVm(string Name, string ValueText, List<TreeStatio
 public sealed record AssetRowVm(
     string Name, string FlagLabel, bool FlagVisible, bool FlagFitted,
     string QtyText, string Group, string OwnerName, IBrush OwnerColor,
-    string Location, string JumpsText, IBrush JumpsBrush, string UnitText, string ValueText);
+    string Location, string Path, string JumpsText, IBrush JumpsBrush, string UnitText, string ValueText)
+{
+    /// <summary>True when the stack sits inside a container or ship, so the row shows which one under the station.</summary>
+    public bool PathVisible => Path.Length > 0;
+    /// <summary>Full location for the tooltip: station, then the container/ship chain.</summary>
+    public string LocationTip => Path.Length > 0 ? Location + Services.AssetLocator.Separator + Path : Location;
+}
 
 public sealed record CharCardVm(string Name, IBrush Color, string ValueText, string SubText);
 

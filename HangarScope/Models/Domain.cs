@@ -42,9 +42,11 @@ public sealed class AssetStack
     public long CharId { get; set; }
     public long StationId { get; set; }
     public OwnershipFlag Flag { get; set; }
+    /// <summary>Which container or ship holds the stack inside the station, outermost first ("Paladin “X” › Cargo"); "" when loose in the hangar.</summary>
+    public string Path { get; set; } = "";
     public double Sell { get; set; }
     public double Buy { get; set; }
-    /// <summary>Precomputed lowercase "name group station" blob so search never allocates per keystroke.</summary>
+    /// <summary>Precomputed lowercase "name group station path" blob so search never allocates per keystroke.</summary>
     public string Search { get; set; } = "";
 }
 

@@ -1,3 +1,13 @@
 {
-  "features": []
+  "features": [
+    {
+      "pr": 19,
+      "date": "2026-11-11",
+      "title": "See which container or ship holds an item",
+      "description": "On the ASSETS screen, items inside a container or ship now show exactly which one under the station in the LOCATION column, with its name and the bay or slot, for example Paladin “Lasers Go Brr” › Cargo; hover the location for the full path.\n\nThe SEARCH box also finds items by container or ship name. Names appear after the next asset sync.",
+      "images": [
+        { "src": "img/pr-19-container-path.png", "caption": "ASSETS screen, LOCATION column, searching for container" }
+      ]
+    }
+  ]
 }

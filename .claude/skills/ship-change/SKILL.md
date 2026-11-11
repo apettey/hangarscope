@@ -34,7 +34,7 @@ repo-specific review rules in [references/review-loop.md](references/review-loop
 | Branch prefix | `claude/` (humans: `feature/`, `fix/`, `chore/`) |
 | Build | `dotnet build HangarScope/HangarScope.csproj` (0 warnings, 0 errors) |
 | Run (demo data, no credentials) | `dotnet run --project HangarScope -- --demo` |
-| Screenshot | `HangarScope.exe --demo --screen=<tab> --snapshot=<path>.png` (renders the window to PNG at a fixed size and exits; REFIT views: `--refit-mode=fittings`, `--refit-scroll=orders\|lists`, `--fit-sync=<fit name part> [--fit-sync-pick=all]`, `--fit-tidy=<fit name part>`, `--fit-expand=all`) |
+| Screenshot | `HangarScope.exe --demo --screen=<tab> --snapshot=<path>.png` (renders the window to PNG at a fixed size and exits; REFIT views: `--refit-mode=fittings`, `--refit-scroll=orders\|lists`, `--fit-sync=<fit name part> [--fit-sync-pick=all]`, `--fit-tidy=<fit name part>`, `--fit-expand=all`; ASSETS: `--assets-search=<text>`) |
 | Tests | `HangarScope.Tests/` · `dotnet test HangarScope.slnx` |
 | Release artefact | `dotnet publish HangarScope/HangarScope.csproj -c Release -r win-x64 --self-contained true -o publish` (PR CI runs it too) |
 | Release log | `docs/changelog/` (index `README.md`, template `TEMPLATE.md`) |
