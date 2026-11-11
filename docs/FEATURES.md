@@ -154,7 +154,6 @@ One card per character:
 ## Under the hood
 
 - **Version** — the title bar shows the running version after the app name (`HANGARSCOPE — NEW EDEN ASSET LEDGER · V1.3.0`). Releases get it from CI (`-p:Version`); local builds keep the csproj default `0.0.0-dev` and show `DEV BUILD`.
-
 - **ESI client** — ETag caching, `X-Pages` pagination, error-limit backoff, ≤8 concurrent requests.
 - **Asset aggregation** — raw asset items are walked up their container/ship chains to a root station or structure; fitting-slot flags become FITTED, nested items CTNR, and the chain is kept as a readable path using player-given container and ship names (`/assets/names/`).
 - **Ship fits** — alongside the per-station stacks, every assembled ship is kept with its own contents (slot flag, type, qty) and its player-given name (`/assets/names/`). This is what lets HangarScope tell which module is on which hull.
