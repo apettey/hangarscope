@@ -1,6 +1,15 @@
 {
   "features": [
     {
+      "pr": 20,
+      "date": "2026-11-11",
+      "title": "See which version you're running",
+      "description": "The title bar at the top of the window now shows the HangarScope version after the app name, for example V1.3.0.\n\nUse it to check that an automatic update has been applied.",
+      "images": [
+        { "src": "img/pr-20-version-title-bar.png", "caption": "The version in the title bar, top left of the window" }
+      ]
+    },
+    {
       "pr": 19,
       "date": "2026-11-11",
       "title": "See which container or ship holds an item",
